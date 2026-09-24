@@ -47,6 +47,8 @@ La aplicación adopta el patrón **MVVM (Model - View - ViewModel)** combinado c
 | `settings.gradle.kts` | Repositorios (`google()`, `mavenCentral()`) y nombre raíz del proyecto ("Cámara"). |
 | `gradle/libs.versions.toml` | Catálogo de versiones centralizado para dependencias y plugins de Gradle. |
 | `metadata.json` | Metadatos de la plataforma y sincronización con el nombre visible de la app. |
+| `gradlew` / `gradlew.bat` | Scripts del Gradle Wrapper para ejecución autónoma en Linux/macOS y Windows. |
+| `gradle/wrapper/` | Binario `gradle-wrapper.jar` y configuración de versión de Gradle. |
 | `README.md` | Descripción general del proyecto, características y compilación. |
 | `ROADMAP.md` | Hoja de ruta técnica con las fases futuras de evolución. |
 | `STRUCTURE.md` | Este archivo con la arquitectura y desglose del código. |
