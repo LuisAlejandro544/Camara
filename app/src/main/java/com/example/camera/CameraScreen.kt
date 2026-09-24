@@ -16,6 +16,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,12 +39,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.FlashAuto
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.GridOff
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.HdrOn
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
@@ -67,6 +71,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -74,6 +79,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.example.R
 import com.example.ui.theme.CameraBlack
@@ -123,6 +130,10 @@ fun CameraScreen(
     onZoomLimitsDetected: (Float, Float) -> Unit,
     onOpenSettings: () -> Unit,
     onExposureLimitsDetected: (min: Int, max: Int, step: Float, isSupported: Boolean) -> Unit,
+    onOpenHighResInfoDialog: (Boolean) -> Unit = {},
+    onToggleBeautyFilter: () -> Unit = {},
+    onSelectAspectRatio: (AspectRatioOption) -> Unit = {},
+    onToggleAspectRatioSelector: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -150,6 +161,7 @@ fun CameraScreen(
             lensFacing = uiState.lensFacing,
             captureMode = uiState.captureMode,
             selectedQuality = uiState.selectedVideoQuality,
+            aspectRatio = uiState.aspectRatio,
             isMaxMegapixelsEnabled = uiState.isMaxMegapixelsEnabled,
             isHdrVideoEnabled = uiState.isHdrVideoEnabled,
             isGridEnabled = uiState.isGridEnabled,
@@ -267,142 +279,310 @@ fun CameraScreen(
             }
         }
 
-        // 4. Barra Superior de Controles
-        Box(
+        // 4. Barra Superior de Controles (Diseño compacto, elegante y espacioso)
+        Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color.Black.copy(alpha = 0.75f),
+                            Color.Black.copy(alpha = 0.8f),
                             Color.Transparent
                         )
                     )
                 )
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Control del Flash
-                IconButton(
+                // Control del Flash (Compacto y elegante)
+                ElegantTopIconButton(
                     onClick = onToggleFlash,
                     enabled = !uiState.isRecordingVideo,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(CameraControlBackground, CircleShape)
-                        .testTag("flash_toggle_button")
-                ) {
-                    val (flashIcon, tintColor) = when (uiState.flashMode) {
-                        FlashMode.AUTO -> Icons.Default.FlashAuto to CameraTextPrimary
-                        FlashMode.ON -> Icons.Default.FlashOn to CameraYellowAccent
-                        FlashMode.OFF -> Icons.Default.FlashOff to Color.White.copy(alpha = 0.5f)
-                    }
-                    Icon(
-                        imageVector = flashIcon,
-                        contentDescription = stringResource(R.string.flash_mode_desc),
-                        tint = tintColor
-                    )
-                }
+                    icon = when (uiState.flashMode) {
+                        FlashMode.AUTO -> Icons.Default.FlashAuto
+                        FlashMode.ON -> Icons.Default.FlashOn
+                        FlashMode.OFF -> Icons.Default.FlashOff
+                    },
+                    contentDescription = stringResource(R.string.flash_mode_desc),
+                    tint = when (uiState.flashMode) {
+                        FlashMode.AUTO -> CameraTextPrimary
+                        FlashMode.ON -> CameraYellowAccent
+                        FlashMode.OFF -> Color.White.copy(alpha = 0.45f)
+                    },
+                    testTag = "flash_toggle_button"
+                )
 
-                // Centro: Indicador de Grabación Activa, Badge de Vídeo, O Badge de Megapíxeles Reales de Foto
+                // Centro: Indicador de Grabación, Ajustes de Vídeo con HDR Rápido, O Badge de 50MP
                 if (uiState.isRecordingVideo) {
                     // Cronómetro de Grabación con punto rojo pulsante
                     VideoRecordingBadge(durationSeconds = uiState.recordingDurationSeconds)
                 } else if (uiState.captureMode == CaptureMode.VIDEO) {
-                    // Botón para desplegar ajustes de vídeo (4K, 2K QHD, FHD, FPS detectados y HDR)
-                    val hdrTag = if (uiState.isHdrVideoEnabled) " • HDR" else ""
-                    Surface(
-                        color = CameraControlBackground,
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier
-                            .clickable { onOpenVideoSettings(true) }
-                            .testTag("video_settings_badge_button")
+                    // Fila de controles de vídeo: Resolución/FPS y botón directo de HDR
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        // Badge con Calidad y FPS de vídeo
+                        Surface(
+                            color = Color.Black.copy(alpha = 0.55f),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .clickable { onOpenVideoSettings(true) }
+                                .testTag("video_settings_badge_button")
                         ) {
-                            Text(
-                                text = "${uiState.selectedVideoQuality.label} • ${uiState.selectedFps} FPS$hdrTag",
-                                color = CameraYellowAccent,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Ajustes de vídeo",
-                                tint = CameraTextPrimary,
-                                modifier = Modifier.size(14.dp)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "${uiState.selectedVideoQuality.label} • ${uiState.selectedFps} FPS",
+                                    color = CameraYellowAccent,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Ajustes de vídeo",
+                                    tint = CameraTextPrimary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+
+                        // Botón de acceso directo a HDR para vídeo
+                        val isHdrOn = uiState.isHdrVideoEnabled && uiState.isHdrSupported
+                        Surface(
+                            color = if (isHdrOn) CameraYellowAccent else Color.Black.copy(alpha = 0.55f),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.dp, if (isHdrOn) CameraYellowAccent else Color.White.copy(alpha = 0.16f)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .clickable {
+                                    if (uiState.isHdrSupported) {
+                                        onToggleHdr()
+                                    } else {
+                                        onOpenVideoSettings(true)
+                                    }
+                                }
+                                .testTag("video_hdr_quick_toggle")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.HdrOn,
+                                    contentDescription = "HDR Vídeo",
+                                    tint = if (isHdrOn) CameraBlack else if (uiState.isHdrSupported) CameraYellowAccent else Color.White.copy(alpha = 0.4f),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = if (!uiState.isHdrSupported) "HDR N/D" else if (isHdrOn) "HDR" else "SDR",
+                                    color = if (isHdrOn) CameraBlack else if (uiState.isHdrSupported) CameraTextPrimary else Color.White.copy(alpha = 0.4f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 } else {
-                    // Modo Foto: Badge con los megapíxeles reales soportados por el teléfono
+                    // Modo Foto: Badge con los megapíxeles reales y botón de Filtro de Belleza (Vulkan/OpenGL)
                     val maxMp = uiState.photoResolutionInfo.maxMegaPixels
-                    Surface(
-                        color = if (uiState.isMaxMegapixelsEnabled) CameraYellowAccent else CameraControlBackground,
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier
-                            .clickable { onToggleMaxMegapixels() }
-                            .testTag("photo_megapixels_toggle_button")
+                    val isRestricted = uiState.photoResolutionInfo.isRestrictedByOemOrOs
+                    val isHighResOn = uiState.isMaxMegapixelsEnabled
+                    val isBeautyOn = uiState.isBeautyFilterEnabled
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        // 1. Selector de Megapíxeles Reales
+                        Surface(
+                            color = if (isHighResOn) CameraYellowAccent else Color.Black.copy(alpha = 0.55f),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.dp, if (isHighResOn) CameraYellowAccent else Color.White.copy(alpha = 0.16f)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .clickable {
+                                    if (isRestricted) {
+                                        onOpenHighResInfoDialog(true)
+                                    }
+                                    onToggleMaxMegapixels()
+                                }
+                                .testTag("photo_megapixels_toggle_button")
                         ) {
-                            Text(
-                                text = if (uiState.isMaxMegapixelsEnabled) "${maxMp}MP" else "${maxMp}MP OFF",
-                                color = if (uiState.isMaxMegapixelsEnabled) CameraBlack else CameraTextPrimary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = if (isHighResOn) "${maxMp}MP" else "${maxMp}MP OFF",
+                                    color = if (isHighResOn) CameraBlack else CameraTextPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.3.sp
+                                )
+                                if (isRestricted) {
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .size(13.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isHighResOn) CameraBlack.copy(alpha = 0.2f) else CameraYellowAccent.copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "i",
+                                            color = if (isHighResOn) CameraBlack else CameraYellowAccent,
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2. Filtro de Belleza (Vulkan 1.1 / OpenGL ES 3.2 en C++20)
+                        Surface(
+                            color = if (isBeautyOn) CameraYellowAccent else Color.Black.copy(alpha = 0.55f),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.dp, if (isBeautyOn) CameraYellowAccent else Color.White.copy(alpha = 0.16f)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .clickable { onToggleBeautyFilter() }
+                                .testTag("beauty_filter_toggle_button")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Face,
+                                    contentDescription = "Filtro de Belleza",
+                                    tint = if (isBeautyOn) CameraBlack else CameraYellowAccent,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = if (isBeautyOn) "Belleza" else "Belleza OFF",
+                                    color = if (isBeautyOn) CameraBlack else CameraTextPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
 
-                // Derecha: Control de Cuadrícula y Botón de Configuración (Tuerca)
+                // Derecha: Selector de Aspect Ratio, Control de Cuadrícula y Botón de Configuración
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Control de Cuadrícula
-                    IconButton(
-                        onClick = onToggleGrid,
+                    // Botón de Selector de Relación de Aspecto (Full, 16:9, 4:3, 1:1)
+                    Surface(
+                        color = if (uiState.isAspectRatioSelectorOpen) CameraYellowAccent else Color.Black.copy(alpha = 0.55f),
+                        shape = RoundedCornerShape(18.dp),
+                        border = BorderStroke(1.dp, if (uiState.isAspectRatioSelectorOpen) CameraYellowAccent else Color.White.copy(alpha = 0.16f)),
                         modifier = Modifier
-                            .size(48.dp)
-                            .background(CameraControlBackground, CircleShape)
-                            .testTag("grid_toggle_button")
+                            .clip(RoundedCornerShape(18.dp))
+                            .clickable(enabled = !uiState.isRecordingVideo) { onToggleAspectRatioSelector() }
+                            .testTag("aspect_ratio_toggle_button")
                     ) {
-                        val gridIcon = if (uiState.isGridEnabled) Icons.Default.GridOn else Icons.Default.GridOff
-                        val tintColor = if (uiState.isGridEnabled) CameraYellowAccent else Color.White.copy(alpha = 0.6f)
-                        Icon(
-                            imageVector = gridIcon,
-                            contentDescription = "Cuadrícula",
-                            tint = tintColor
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                text = uiState.aspectRatio.label,
+                                color = if (uiState.isAspectRatioSelectorOpen) CameraBlack else CameraYellowAccent,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
                     }
 
+                    // Control de Cuadrícula (Compacto y elegante)
+                    ElegantTopIconButton(
+                        onClick = onToggleGrid,
+                        icon = if (uiState.isGridEnabled) Icons.Default.GridOn else Icons.Default.GridOff,
+                        contentDescription = "Cuadrícula",
+                        tint = if (uiState.isGridEnabled) CameraYellowAccent else Color.White.copy(alpha = 0.6f),
+                        testTag = "grid_toggle_button"
+                    )
+
                     // Botón de Configuración (Tuerca independiente)
-                    IconButton(
+                    ElegantTopIconButton(
                         onClick = onOpenSettings,
                         enabled = !uiState.isRecordingVideo,
+                        icon = Icons.Default.Settings,
+                        contentDescription = stringResource(R.string.settings_desc),
+                        tint = CameraTextPrimary,
+                        testTag = "settings_button"
+                    )
+                }
+            }
+
+            // Barra horizontal desplegable con las 4 opciones de Aspect Ratio: [Full] [16:9] [4:3] [1:1]
+            if (uiState.isAspectRatioSelectorOpen && !uiState.isRecordingVideo) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.90f),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp)
+                        .testTag("aspect_ratio_selector_bar")
+                ) {
+                    Row(
                         modifier = Modifier
-                            .size(48.dp)
-                            .background(CameraControlBackground, CircleShape)
-                            .testTag("settings_button")
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = stringResource(R.string.settings_desc),
-                            tint = CameraTextPrimary
-                        )
+                        AspectRatioOption.entries.forEach { option ->
+                            val isSelected = uiState.aspectRatio == option
+                            Surface(
+                                color = if (isSelected) CameraYellowAccent else Color.Transparent,
+                                shape = RoundedCornerShape(16.dp),
+                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { onSelectAspectRatio(option) }
+                                    .testTag("aspect_ratio_option_${option.label}")
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = option.label,
+                                        color = if (isSelected) CameraBlack else CameraTextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                    Text(
+                                        text = option.description,
+                                        color = if (isSelected) CameraBlack.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -545,10 +725,10 @@ fun CameraScreen(
                 // Miniatura de la última captura
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
+                        .size(48.dp)
                         .clip(CircleShape)
-                        .background(CameraControlBackground)
-                        .border(2.dp, Color.White.copy(alpha = 0.6f), CircleShape)
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .border(1.5.dp, Color.White.copy(alpha = 0.35f), CircleShape)
                         .clickable(enabled = uiState.lastPhotoUri != null && !uiState.isRecordingVideo) {
                             uiState.lastPhotoUri?.let { uri -> onThumbnailClick(uri) }
                         }
@@ -567,7 +747,7 @@ fun CameraScreen(
                             imageVector = Icons.Default.Image,
                             contentDescription = stringResource(R.string.gallery_thumbnail_desc),
                             tint = Color.White.copy(alpha = 0.4f),
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -584,6 +764,10 @@ fun CameraScreen(
                                     context = context,
                                     imageCapture = activeImageCapture,
                                     flashMode = uiState.flashMode,
+                                    aspectRatio = uiState.aspectRatio,
+                                    isBeautyFilterEnabled = uiState.isBeautyFilterEnabled,
+                                    beautyIntensity = uiState.beautyFilterIntensity,
+                                    isVulkanBackend = uiState.selectedGraphicsBackend == GraphicsFilterBackend.VULKAN,
                                     onStart = onCaptureStarted,
                                     onSuccess = onPhotoCaptured,
                                     onError = onCaptureError
@@ -633,8 +817,10 @@ fun CameraScreen(
                     },
                     enabled = !uiState.isRecordingVideo,
                     modifier = Modifier
-                        .size(56.dp)
-                        .background(CameraControlBackground, CircleShape)
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.55f))
+                        .border(1.dp, Color.White.copy(alpha = 0.16f), CircleShape)
                         .testTag("switch_camera_button")
                 ) {
                     Icon(
@@ -642,7 +828,7 @@ fun CameraScreen(
                         contentDescription = stringResource(R.string.switch_camera_desc),
                         tint = if (uiState.isRecordingVideo) Color.White.copy(alpha = 0.3f) else CameraTextPrimary,
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(24.dp)
                             .rotate(animatedRotation)
                     )
                 }
@@ -664,6 +850,14 @@ fun CameraScreen(
                 onToggleAudio = onToggleAudio,
                 onToggleHdr = onToggleHdr,
                 onDismiss = { onOpenVideoSettings(false) }
+            )
+        }
+
+        // 7. Diálogo Explicativo de 50MP, Pixel Binning y Restricciones del Sistema
+        if (uiState.isHighResInfoDialogOpen) {
+            HighResInfoDialog(
+                photoInfo = uiState.photoResolutionInfo,
+                onDismiss = { onOpenHighResInfoDialog(false) }
             )
         }
 
@@ -791,6 +985,149 @@ private fun CameraShutterButton(
                         .clip(CircleShape)
                         .background(Color(0xFFFF5252))
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Botón superior compacto, elegante y táctilmente preciso para la barra de control.
+ */
+@Composable
+private fun ElegantTopIconButton(
+    onClick: () -> Unit,
+    icon: ImageVector,
+    contentDescription: String,
+    tint: Color,
+    testTag: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .size(38.dp)
+            .testTag(testTag)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.55f))
+                .border(1.dp, Color.White.copy(alpha = 0.16f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Diálogo explicativo sobre sensores de 50MP, Pixel Binning y restricciones de Android / fabricantes.
+ */
+@Composable
+private fun HighResInfoDialog(
+    photoInfo: PhotoResolutionInfo,
+    onDismiss: () -> Unit
+) {
+    val manufacturer = android.os.Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .clip(RoundedCornerShape(22.dp))
+                .background(Color(0xFF1E1E1E))
+                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(22.dp))
+                .padding(20.dp)
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Sensor de ${photoInfo.maxMegaPixels}MP y Pixel Binning",
+                        color = CameraYellowAccent,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Cerrar",
+                            tint = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "• Sensor Físico Detectado: ${photoInfo.maxResolutionString} (${photoInfo.maxMegaPixels} MP)",
+                    color = CameraTextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = if (photoInfo.isRestrictedByOemOrOs) {
+                        photoInfo.restrictionReason
+                            ?: "El sistema o la capa de personalización de $manufacturer limitan el acceso directo al flujo de 50MP para apps de terceros, entregando el modo estándar de 12MP optimizado mediante pixel binning (4 en 1)."
+                    } else {
+                        "Tu dispositivo permite captura a resolución completa de ${photoInfo.maxMegaPixels}MP sin restricciones artificiales. Mantén el teléfono firme al tomar la foto para máxima nitidez."
+                    },
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "💡 El Pixel Binning es una técnica de los fabricantes que combina 4 píxeles en 1 para capturar mucha más luz y colores más vivos, evitando ruido visual en fotos cotidianas.",
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 11.5.sp,
+                    lineHeight = 16.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Surface(
+                    color = CameraYellowAccent,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onDismiss() }
+                ) {
+                    Box(
+                        modifier = Modifier.padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Entendido",
+                            color = CameraBlack,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
     }

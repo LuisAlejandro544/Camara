@@ -1,5 +1,6 @@
 package com.example.camera
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,6 +35,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -67,6 +70,9 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpenColorCalibration: () -> Unit,
     onToggleGrid: () -> Unit,
+    onSelectAspectRatio: (AspectRatioOption) -> Unit = {},
+    onSelectGraphicsBackend: (GraphicsFilterBackend) -> Unit = {},
+    onSetBeautyIntensity: (Float) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -205,6 +211,79 @@ fun SettingsScreen(
                 colors = CardDefaults.cardColors(containerColor = CameraControlBackground)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    // Selector de Relación de Aspecto
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Camera,
+                            contentDescription = null,
+                            tint = CameraTextPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.aspect_ratio_label),
+                                color = CameraTextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "${uiState.aspectRatio.label} • ${uiState.aspectRatio.description}",
+                                color = CameraYellowAccent,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Botones de relación de aspecto en Settings
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        AspectRatioOption.entries.forEach { option ->
+                            val isSelected = uiState.aspectRatio == option
+                            Surface(
+                                color = if (isSelected) CameraYellowAccent else Color.Black.copy(alpha = 0.4f),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, if (isSelected) CameraYellowAccent else Color.White.copy(alpha = 0.2f)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable { onSelectAspectRatio(option) }
+                                    .testTag("settings_aspect_ratio_${option.label}")
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = option.label,
+                                        color = if (isSelected) CameraBlack else CameraTextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = option.description.take(6),
+                                        color = if (isSelected) CameraBlack.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.45f),
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(
+                        color = Color.White.copy(alpha = 0.08f),
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+
                     // Switch de Cuadrícula 3x3
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -307,8 +386,21 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     HardwareInfoRow(
                         icon = Icons.Default.Camera,
-                        label = "Sensor de Foto",
+                        label = "Sensor de Foto Físico",
                         value = "${uiState.photoResolutionInfo.maxMegaPixels} MP (${uiState.photoResolutionInfo.maxResolutionString})"
+                    )
+                    HorizontalDivider(
+                        color = Color.White.copy(alpha = 0.08f),
+                        modifier = Modifier.padding(vertical = 10.dp)
+                    )
+                    HardwareInfoRow(
+                        icon = Icons.Default.CheckCircle,
+                        label = "Modo Alta Resolución (50MP)",
+                        value = if (uiState.photoResolutionInfo.isRestrictedByOemOrOs) {
+                            "Limitado a 12MP (Pixel Binning)"
+                        } else {
+                            "Activo (${uiState.photoResolutionInfo.maxMegaPixels}MP Nativo)"
+                        }
                     )
                     HorizontalDivider(
                         color = Color.White.copy(alpha = 0.08f),
@@ -344,7 +436,195 @@ fun SettingsScreen(
                 }
             }
 
-            // 4. SECCIÓN: Motor Nativo C++20
+            // TARJETA EDUCATIVA: Explicación de 50MP, Pixel Binning y Restricciones OEM / Android
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "ℹ️ ¿Por qué 50MP vs 12MP en Android?",
+                            color = CameraYellowAccent,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "1. Pixel Binning (4 en 1): Los sensores modernos de 48MP o 50MP combinan 4 píxeles en 1 para capturar 4 veces más luz, generando fotos estándar de 12.5MP con colores más vivos y menos ruido en sombras.",
+                        color = CameraTextPrimary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "2. Requisito de Android 12 (API 31): Google no permitía a apps de terceros acceder al flujo de 50MP en versiones anteriores a Android 12. En Android 8 a 11, el sistema operativo siempre reporta 12MP.",
+                        color = CameraTextPrimary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val mfg = android.os.Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+                    Text(
+                        text = "3. Bloqueo de Capas OEM: Fabricantes como $mfg (MIUI/HyperOS, HiOS, XOS, ColorOS, etc.) con frecuencia bloquean el acceso al modo de 50MP para apps de terceros y lo reservan exclusivamente para su propia app de cámara de fábrica.",
+                        color = CameraTextPrimary,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "4. Grabación HDR 10-bit: Requiere que el procesador del móvil y el sensor tengan habilitado el perfil de color HLG de 10 bits en CameraX/Camera2.",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            // 4. SECCIÓN: Motor Gráfico de Filtros (Vulkan 1.1 / OpenGL ES)
+            SettingsSectionHeader(title = "Motor Gráfico de Filtros")
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = CameraControlBackground)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Aceleración de Filtros en Tiempo Real",
+                        color = CameraTextPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (uiState.isVulkan11Supported) {
+                            "✅ Procesador compatible con Vulkan 1.1 (${uiState.vulkanVersionString}). Se utiliza Vulkan por defecto."
+                        } else {
+                            "ℹ️ Vulkan 1.1 no detectado (${uiState.vulkanVersionString}). Se utiliza OpenGL ES 3.2 optimizado."
+                        },
+                        color = if (uiState.isVulkan11Supported) CameraYellowAccent else Color.White.copy(alpha = 0.7f),
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Opciones de backend: Vulkan 1.1 vs OpenGL ES 3.2
+                    GraphicsFilterBackend.entries.forEach { backend ->
+                        val isSelected = uiState.selectedGraphicsBackend == backend
+                        val isSupported = backend != GraphicsFilterBackend.VULKAN || uiState.isVulkan11Supported
+
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) CameraYellowAccent.copy(alpha = 0.15f) else Color.Black.copy(alpha = 0.4f)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            border = if (isSelected) {
+                                androidx.compose.foundation.BorderStroke(1.5.dp, CameraYellowAccent)
+                            } else {
+                                androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable(enabled = isSupported) {
+                                    onSelectGraphicsBackend(backend)
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = backend.label,
+                                            color = if (isSupported) CameraTextPrimary else Color.White.copy(alpha = 0.4f),
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        if (isSelected) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "• ACTIVO",
+                                                color = CameraYellowAccent,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.ExtraBold
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = backend.description,
+                                        color = if (isSupported) Color.White.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.3f),
+                                        fontSize = 11.5.sp,
+                                        lineHeight = 15.sp
+                                    )
+                                }
+                                if (!isSupported) {
+                                    Text(
+                                        text = "No compatible",
+                                        color = Color.White.copy(alpha = 0.4f),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Calibración de intensidad del Filtro de Belleza
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Intensidad Filtro Belleza",
+                            color = CameraTextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "${(uiState.beautyFilterIntensity * 100).toInt()}%",
+                            color = CameraYellowAccent,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Slider(
+                        value = uiState.beautyFilterIntensity,
+                        onValueChange = { onSetBeautyIntensity(it) },
+                        valueRange = 0.2f..1.0f,
+                        steps = 7,
+                        colors = SliderDefaults.colors(
+                            thumbColor = CameraYellowAccent,
+                            activeTrackColor = CameraYellowAccent,
+                            inactiveTrackColor = Color.White.copy(alpha = 0.2f)
+                        )
+                    )
+                    Text(
+                        text = "Algoritmo bilateral en C++20 con preservación de bordes y niveles de negro. Suaviza imperfecciones y poros sin aplanar ni lavar el contraste de la foto.",
+                        color = Color.White.copy(alpha = 0.55f),
+                        fontSize = 11.5.sp,
+                        lineHeight = 15.sp
+                    )
+                }
+            }
+
+            // 5. SECCIÓN: Motor Nativo C++20
             SettingsSectionHeader(title = stringResource(R.string.settings_native_engine_title))
 
             Card(

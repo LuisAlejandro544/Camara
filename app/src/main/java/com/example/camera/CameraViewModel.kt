@@ -173,18 +173,30 @@ class CameraViewModel : ViewModel() {
     fun toggleMaxMegapixels() {
         if (_uiState.value.isRecordingVideo) return
         _uiState.update { currentState ->
+            val info = currentState.photoResolutionInfo
             val newState = !currentState.isMaxMegapixelsEnabled
-            val mp = currentState.photoResolutionInfo.maxMegaPixels
+            val mp = info.maxMegaPixels
             val message = if (newState) {
-                "Modo ${mp}MP activado. Mantén el teléfono quieto al disparar."
+                if (info.isRestrictedByOemOrOs) {
+                    "Sensor de ${mp}MP activo (modo binning 4en1 por capa del sistema). Mantén quieto el móvil."
+                } else {
+                    "Modo ${mp}MP nativo activado. Mantén el teléfono quieto al disparar."
+                }
             } else {
-                "Modo estándar activado."
+                "Modo estándar optimizado activado."
             }
             currentState.copy(
                 isMaxMegapixelsEnabled = newState,
                 userMessage = message
             )
         }
+    }
+
+    /**
+     * Controla la visualización del diálogo explicativo sobre 50MP, Pixel Binning y restricciones OEM.
+     */
+    fun setHighResInfoDialogOpen(open: Boolean) {
+        _uiState.update { it.copy(isHighResInfoDialogOpen = open) }
     }
 
     /**
@@ -236,6 +248,38 @@ class CameraViewModel : ViewModel() {
         _uiState.update { currentState ->
             currentState.copy(isGridEnabled = !currentState.isGridEnabled)
         }
+    }
+
+    /**
+     * Selecciona una relación de aspecto para la cámara (Full, 16:9, 4:3, 1:1).
+     * Muestra un mensaje amigable al usuario confirmando el cambio de proporción.
+     */
+    fun setAspectRatio(ratio: AspectRatioOption) {
+        if (_uiState.value.isRecordingVideo) return
+        _uiState.update { currentState ->
+            currentState.copy(
+                aspectRatio = ratio,
+                isAspectRatioSelectorOpen = false,
+                userMessage = "Relación de aspecto: ${ratio.label} (${ratio.description})"
+            )
+        }
+    }
+
+    /**
+     * Abre o cierra la barra selectora rápida de relación de aspecto en la parte superior.
+     */
+    fun toggleAspectRatioSelector() {
+        if (_uiState.value.isRecordingVideo) return
+        _uiState.update { currentState ->
+            currentState.copy(isAspectRatioSelectorOpen = !currentState.isAspectRatioSelectorOpen)
+        }
+    }
+
+    /**
+     * Cierra explícitamente el selector de relación de aspecto.
+     */
+    fun closeAspectRatioSelector() {
+        _uiState.update { it.copy(isAspectRatioSelectorOpen = false) }
     }
 
     /**
@@ -469,5 +513,66 @@ class CameraViewModel : ViewModel() {
                 userMessage = "Restablecido a calibración antilavado recomendada"
             )
         }
+    }
+
+    /**
+     * Inspecciona si el hardware (procesador y GPU) soporta Vulkan 1.1 y detecta la versión de OpenGL ES.
+     * Selecciona automáticamente Vulkan 1.1 como backend de filtros si está disponible; de lo contrario OpenGL ES.
+     */
+    fun detectGraphicsHardware(context: Context) {
+        val (isVulkan11, vulkanStr) = CameraCaptureManager.detectVulkan11Support(context)
+        val openGlStr = CameraCaptureManager.detectOpenGlVersion(context)
+
+        _uiState.update { current ->
+            current.copy(
+                isVulkan11Supported = isVulkan11,
+                vulkanVersionString = vulkanStr,
+                openGlVersionString = openGlStr,
+                selectedGraphicsBackend = if (isVulkan11) GraphicsFilterBackend.VULKAN else GraphicsFilterBackend.OPENGL_ES
+            )
+        }
+    }
+
+    /**
+     * Permite al usuario cambiar manualmente el backend de renderizado gráfico de los filtros.
+     */
+    fun setSelectedGraphicsBackend(backend: GraphicsFilterBackend) {
+        _uiState.update { current ->
+            if (backend == GraphicsFilterBackend.VULKAN && !current.isVulkan11Supported) {
+                current.copy(userMessage = "El procesador no cuenta con Vulkan 1.1. Se mantendrá OpenGL ES.")
+            } else {
+                current.copy(
+                    selectedGraphicsBackend = backend,
+                    userMessage = "Motor de filtros: ${backend.label} (${backend.apiName})"
+                )
+            }
+        }
+    }
+
+    /**
+     * Alterna la activación del filtro de belleza y suavizado con preservación de contraste.
+     */
+    fun toggleBeautyFilter() {
+        if (_uiState.value.isRecordingVideo) return
+        _uiState.update { current ->
+            val newState = !current.isBeautyFilterEnabled
+            val backendName = current.selectedGraphicsBackend.label
+            val msg = if (newState) {
+                "Filtro de Belleza activado ($backendName • Antilavado)"
+            } else {
+                "Filtro de Belleza desactivado"
+            }
+            current.copy(
+                isBeautyFilterEnabled = newState,
+                userMessage = msg
+            )
+        }
+    }
+
+    /**
+     * Ajusta la intensidad del filtro de belleza (0.0f a 1.0f).
+     */
+    fun setBeautyFilterIntensity(intensity: Float) {
+        _uiState.update { it.copy(beautyFilterIntensity = intensity.coerceIn(0.0f, 1.0f)) }
     }
 }

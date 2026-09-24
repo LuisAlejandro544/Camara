@@ -146,4 +146,102 @@ class CameraViewModelTest {
         viewModel.openSettings(false)
         assertFalse(viewModel.uiState.value.isSettingsOpen)
     }
+
+    @Test
+    fun `toggleMaxMegapixels y setHighResInfoDialogOpen funcionan correctamente con sensor de 50MP`() {
+        // Dado un sensor de 50MP con restricción detectada de capa de fabricante
+        val photoInfo = PhotoResolutionInfo(
+            maxMegaPixels = 50,
+            maxResolutionString = "8160 × 6120",
+            standardMegaPixels = 12,
+            hasHighResMode = true,
+            physicalSensorMegaPixels = 50,
+            isRestrictedByOemOrOs = true,
+            restrictionReason = "Limitado por capa OEM a 12MP"
+        )
+        viewModel.setPhotoCapabilities(photoInfo)
+        assertFalse(viewModel.uiState.value.isMaxMegapixelsEnabled)
+        assertFalse(viewModel.uiState.value.isHighResInfoDialogOpen)
+
+        // Al alternar el modo de megapíxeles
+        viewModel.toggleMaxMegapixels()
+        assertTrue(viewModel.uiState.value.isMaxMegapixelsEnabled)
+        assertTrue(viewModel.uiState.value.userMessage?.contains("50MP") == true)
+
+        // Al abrir el diálogo explicativo
+        viewModel.setHighResInfoDialogOpen(true)
+        assertTrue(viewModel.uiState.value.isHighResInfoDialogOpen)
+
+        viewModel.setHighResInfoDialogOpen(false)
+        assertFalse(viewModel.uiState.value.isHighResInfoDialogOpen)
+    }
+
+    @Test
+    fun `setSelectedGraphicsBackend respeta compatibilidad de Vulkan 1_1`() {
+        // Por defecto sin Vulkan 1.1, debe permanecer o mantenerse en OpenGL ES
+        viewModel.setSelectedGraphicsBackend(GraphicsFilterBackend.OPENGL_ES)
+        assertEquals(GraphicsFilterBackend.OPENGL_ES, viewModel.uiState.value.selectedGraphicsBackend)
+
+        // Intentar seleccionar Vulkan sin soporte
+        viewModel.setSelectedGraphicsBackend(GraphicsFilterBackend.VULKAN)
+        // Como isVulkan11Supported es false por defecto en el test, debe advertir y mantenerse en OpenGL ES
+        assertEquals(GraphicsFilterBackend.OPENGL_ES, viewModel.uiState.value.selectedGraphicsBackend)
+        assertTrue(viewModel.uiState.value.userMessage?.contains("Vulkan 1.1") == true)
+    }
+
+    @Test
+    fun `toggleBeautyFilter y setBeautyFilterIntensity controlan el filtro de belleza`() {
+        assertFalse(viewModel.uiState.value.isBeautyFilterEnabled)
+
+        // Al activarlo
+        viewModel.toggleBeautyFilter()
+        assertTrue(viewModel.uiState.value.isBeautyFilterEnabled)
+        assertTrue(viewModel.uiState.value.userMessage?.contains("Filtro de Belleza activado") == true)
+
+        // Ajustar intensidad
+        viewModel.setBeautyFilterIntensity(0.85f)
+        assertEquals(0.85f, viewModel.uiState.value.beautyFilterIntensity, 0.01f)
+
+        // Al desactivarlo
+        viewModel.toggleBeautyFilter()
+        assertFalse(viewModel.uiState.value.isBeautyFilterEnabled)
+        assertEquals("Filtro de Belleza desactivado", viewModel.uiState.value.userMessage)
+    }
+
+    @Test
+    fun `setAspectRatio actualiza correctamente la relacion de aspecto y emite mensaje`() {
+        // Inicialmente el ratio es 4:3 (sensor completo)
+        assertEquals(AspectRatioOption.RATIO_4_3, viewModel.uiState.value.aspectRatio)
+
+        // Cambiar a 16:9
+        viewModel.setAspectRatio(AspectRatioOption.RATIO_16_9)
+        assertEquals(AspectRatioOption.RATIO_16_9, viewModel.uiState.value.aspectRatio)
+        assertTrue(viewModel.uiState.value.userMessage?.contains("16:9") == true)
+
+        // Cambiar a 1:1
+        viewModel.setAspectRatio(AspectRatioOption.RATIO_1_1)
+        assertEquals(AspectRatioOption.RATIO_1_1, viewModel.uiState.value.aspectRatio)
+        assertTrue(viewModel.uiState.value.userMessage?.contains("1:1") == true)
+
+        // Cambiar a Full
+        viewModel.setAspectRatio(AspectRatioOption.FULL)
+        assertEquals(AspectRatioOption.FULL, viewModel.uiState.value.aspectRatio)
+        assertTrue(viewModel.uiState.value.userMessage?.contains("Full") == true)
+    }
+
+    @Test
+    fun `toggleAspectRatioSelector y closeAspectRatioSelector controlan la apertura de la barra`() {
+        assertFalse(viewModel.uiState.value.isAspectRatioSelectorOpen)
+
+        viewModel.toggleAspectRatioSelector()
+        assertTrue(viewModel.uiState.value.isAspectRatioSelectorOpen)
+
+        viewModel.toggleAspectRatioSelector()
+        assertFalse(viewModel.uiState.value.isAspectRatioSelectorOpen)
+
+        viewModel.toggleAspectRatioSelector()
+        assertTrue(viewModel.uiState.value.isAspectRatioSelectorOpen)
+        viewModel.closeAspectRatioSelector()
+        assertFalse(viewModel.uiState.value.isAspectRatioSelectorOpen)
+    }
 }

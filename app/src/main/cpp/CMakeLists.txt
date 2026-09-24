@@ -20,6 +20,10 @@ find_library(log-lib log)
 find_library(android-lib android)
 find_library(camera-ndk-lib camera2ndk)
 find_library(mediandk-lib mediandk)
+find_library(jnigraphics-lib jnigraphics)
+find_library(gles-lib GLESv3)
+find_library(egl-lib EGL)
+find_library(vulkan-lib vulkan)
 
 # Enlazar dependencias del sistema al motor nativo
 target_link_libraries(
@@ -28,6 +32,10 @@ target_link_libraries(
     ${android-lib}
     ${camera-ndk-lib}
     ${mediandk-lib}
+    ${jnigraphics-lib}
+    ${gles-lib}
+    ${egl-lib}
+    ${vulkan-lib}
 )
 
 # Opciones de optimización y avisos

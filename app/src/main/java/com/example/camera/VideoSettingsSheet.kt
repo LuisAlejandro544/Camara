@@ -264,22 +264,25 @@ fun VideoSettingsSheet(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Sección 3: Modo HDR (10-bit HLG) - Solo se muestra si el sensor lo soporta físicamente
-                if (uiState.isHdrSupported) {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (uiState.isHdrVideoEnabled) CameraYellowAccent.copy(alpha = 0.15f) else CameraControlBackground
-                        ),
-                        shape = RoundedCornerShape(14.dp),
-                        border = if (uiState.isHdrVideoEnabled) {
-                            androidx.compose.foundation.BorderStroke(1.5.dp, CameraYellowAccent)
-                        } else null,
-                        modifier = Modifier.fillMaxWidth()
+                // Sección 3: Modo HDR (10-bit HLG) - Siempre visible para el usuario con estado y explicación
+                val manufacturerName = android.os.Build.MANUFACTURER.replaceFirstChar { it.uppercase() }
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (uiState.isHdrVideoEnabled) CameraYellowAccent.copy(alpha = 0.15f) else CameraControlBackground
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                    border = if (uiState.isHdrVideoEnabled) {
+                        androidx.compose.foundation.BorderStroke(1.5.dp, CameraYellowAccent)
+                    } else null,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -290,7 +293,7 @@ fun VideoSettingsSheet(
                                 Icon(
                                     imageVector = Icons.Default.HdrOn,
                                     contentDescription = null,
-                                    tint = if (uiState.isHdrVideoEnabled) CameraYellowAccent else CameraTextSecondary,
+                                    tint = if (uiState.isHdrVideoEnabled) CameraYellowAccent else if (uiState.isHdrSupported) CameraTextPrimary else CameraTextSecondary,
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -302,10 +305,10 @@ fun VideoSettingsSheet(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = if (uiState.isHdrVideoEnabled) {
-                                            stringResource(R.string.video_hdr_desc)
+                                        text = if (uiState.isHdrSupported) {
+                                            if (uiState.isHdrVideoEnabled) stringResource(R.string.video_hdr_desc) else stringResource(R.string.video_sdr_desc)
                                         } else {
-                                            stringResource(R.string.video_sdr_desc)
+                                            "No disponible en este sensor"
                                         },
                                         color = CameraTextSecondary,
                                         fontSize = 12.sp
@@ -313,22 +316,48 @@ fun VideoSettingsSheet(
                                 }
                             }
 
-                            Switch(
-                                checked = uiState.isHdrVideoEnabled,
-                                onCheckedChange = { onToggleHdr() },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = CameraBlack,
-                                    checkedTrackColor = CameraYellowAccent,
-                                    uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                                    uncheckedTrackColor = Color.White.copy(alpha = 0.2f)
-                                ),
-                                modifier = Modifier.testTag("hdr_video_toggle_switch")
+                            if (uiState.isHdrSupported) {
+                                Switch(
+                                    checked = uiState.isHdrVideoEnabled,
+                                    onCheckedChange = { onToggleHdr() },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = CameraBlack,
+                                        checkedTrackColor = CameraYellowAccent,
+                                        uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
+                                        uncheckedTrackColor = Color.White.copy(alpha = 0.2f)
+                                    ),
+                                    modifier = Modifier.testTag("hdr_video_toggle_switch")
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color.White.copy(alpha = 0.08f))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        text = "No Soportado",
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+
+                        if (!uiState.isHdrSupported) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                text = "El sensor físico o la capa de personalización de $manufacturerName no exponen captura en 10 bits (HLG/HDR10) a través de Camera2. El vídeo se graba en SDR 8-bit estándar.",
+                                color = Color.White.copy(alpha = 0.5f),
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Sección 4: Conmutador de Grabación de Audio
                 Card(

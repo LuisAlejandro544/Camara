@@ -27,9 +27,11 @@ Construir y mantener una **aplicación de cámara y grabación de vídeo moderna
    - La app requiere `CAMERA` y opcionalmente `RECORD_AUDIO` para captura de sonido en grabaciones de vídeo. Ambos deben gestionarse de manera segura ante denegaciones en tiempo de ejecución.
    - El sensor acelerómetro se utiliza a través de `DeviceStabilityManager` para orientar al usuario sobre la quietud del dispositivo durante capturas de alta resolución (High-Res / Full MP).
 7. **Resolución, Hardware Real y Zoom del Dispositivo:**
-   - No se hardcodean topes de resolución ni de zoom arbitrarios. Se inspecciona físicamente el sensor mediante `CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP` tanto para detectar los megapíxeles reales soportados por el teléfono (ej. 48 MP, 50 MP, 64 MP, 108 MP, 12 MP) como para vídeo (admitiendo 4K UHD y 2K • QHD 2560×1440 si el hardware lo soporta).
-   - Para vídeo HDR, se consulta dinámicamente `CameraInfo.querySupportedDynamicRanges`. Si el sensor no soporta 10 bits (HLG/HDR10), la opción permanece oculta en la UI para no hacer sentir limitado al usuario ni generar errores. Si se cambia a un sensor sin soporte, se desactiva de forma segura.
+   - Se inspecciona físicamente el sensor mediante la matriz de silicio de hardware (`SENSOR_INFO_PIXEL_ARRAY_SIZE`), el mapa de máxima resolución (`SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION` en Android 12+ / API 31) y el mapa estándar (`SCALER_STREAM_CONFIGURATION_MAP`) para detectar sensores reales de 48MP, 50MP, 64MP, 108MP.
+   - En Android < 12 o si la capa de personalización (OEM) bloquea el acceso de 50MP para apps de terceros entregando 12MP (pixel binning 4 en 1), la app debe diagnosticarlo e informar con precisión y transparencia técnica al usuario sin fallar.
+   - Para vídeo HDR, se consulta dinámicamente `CameraInfo.querySupportedDynamicRanges`. La opción se muestra siempre de forma accesible con botón directo en la barra superior y tarjeta detallada en Ajustes de Vídeo (conmutador activo si el hardware lo soporta o diagnóstico transparente si el sensor/OEM no exponen 10 bits).
    - El rango de zoom debe consultar directamente el `zoomState` del hardware (`minZoomRatio` y `maxZoomRatio`), permitiendo al usuario alcanzar 10x o el límite máximo real soportado por su dispositivo sin restricciones artificiales impuestas en código.
+   - Los iconos de la interfaz deben mantener una proporción compacta y refinada (círculos translúcidos de 38 dp con touch target de 48 dp) para maximizar el espacio útil en pantalla.
 8. **Sistema de Calibración de Color y Compensación de Exposición (Anti-Colores Lavados):**
    - Para corregir el problema de colores pasteles o lavados provocado por los sesgos de sobreexposición del ISP de fábrica (+0.3/+0.7 EV), la app integra control directo sobre `CameraControl.setExposureCompensationIndex()`.
    - El modo antilavado aplica por defecto un offset calibrado (-0.7 EV) y perfil de color *Vívido*, garantizando negros profundos, cielos saturados y contraste natural tanto en el visor como en capturas finales.
@@ -40,6 +42,10 @@ Construir y mantener una **aplicación de cámara y grabación de vídeo moderna
    - Si se modifica el nombre de la app en `res/values/strings.xml`, se debe actualizar en idéntica forma el campo `name` en `metadata.json`. Nunca elimines `MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API` de `metadata.json`.
 11. **Generación de Claves Debug y CI:**
    - `scripts/generate-debug-keystore.sh` permite regenerar de forma no interactiva `debug.keystore` para flujos de CI (`.github/workflows/build-debug-apk.yml`).
+12. **Detección de Vulkan 1.1, OpenGL ES y Filtros Nativo en C++20:**
+   - Se detecta dinámicamente si el hardware del procesador/GPU soporta Vulkan 1.1 mediante `PackageManager.FEATURE_VULKAN_HARDWARE_VERSION` (versión >= 0x401000). Si es compatible, se selecciona automáticamente el pipeline de Vulkan 1.1; de lo contrario, se selecciona OpenGL ES 3.2.
+   - El usuario puede conmutar manualmente el backend de filtros en la pantalla de Configuración (`SettingsScreen`), validando compatibilidad para evitar fallos.
+   - Los filtros fotográficos (como el Filtro de Belleza y Suavizado) se implementan en C++20 (`native-camera-engine.cpp`) con preservación estricta de contraste y niveles de negro (Anti-Lavado) utilizando filtrado bilateral con máscara de piel humana en YCbCr, manteniendo los ojos, cejas, pestañas, labios y contraste de la toma 100% nítidos.
 
 ---
 

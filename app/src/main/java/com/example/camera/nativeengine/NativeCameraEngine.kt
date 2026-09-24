@@ -1,5 +1,6 @@
 package com.example.camera.nativeengine
 
+import android.graphics.Bitmap
 import android.util.Log
 
 /**
@@ -52,6 +53,26 @@ object NativeCameraEngine {
         }
     }
 
+    /**
+     * Aplica el filtro de belleza y suavizado con preservación de contraste sobre un [Bitmap].
+     *
+     * @param bitmap Imagen a procesar en formato ARGB_8888.
+     * @param intensity Intensidad del suavizado (0.0f a 1.0f).
+     * @param isVulkan Si es true utiliza el pipeline de Vulkan 1.1; de lo contrario OpenGL ES 3.2.
+     * @return true si se procesó exitosamente en C++20; false en caso de error.
+     */
+    fun applyBeautyFilter(bitmap: Bitmap, intensity: Float, isVulkan: Boolean): Boolean {
+        if (!isLoaded) return false
+        val backendInt = if (isVulkan) 0 else 1
+        return try {
+            applyBeautyFilter(bitmap, intensity.coerceIn(0.0f, 1.0f), backendInt)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error al invocar applyBeautyFilter nativo: ${e.message}")
+            false
+        }
+    }
+
     private external fun getEngineVersion(): String
     private external fun isNativeEngineAvailable(): Boolean
+    private external fun applyBeautyFilter(bitmap: Bitmap, intensity: Float, backend: Int): Boolean
 }

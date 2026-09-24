@@ -57,16 +57,22 @@ enum class VideoQualityOption(
 /**
  * Información de capacidades de resolución fotográfica física del sensor.
  *
- * @param maxMegaPixels Cantidad de megapíxeles reales soportados por el sensor de hardware (ej. 48, 50, 64, 12, etc.).
- * @param maxResolutionString Cadena con la resolución en píxeles (ej. "8192 × 6144").
+ * @param maxMegaPixels Cantidad de megapíxeles detectados o seleccionables (ej. 48, 50, 64, 12, etc.).
+ * @param maxResolutionString Cadena con la resolución en píxeles (ej. "8192 × 6144" o "4000 × 3000").
  * @param standardMegaPixels Megapíxeles por defecto en modo agrupado/binning (ej. 12).
  * @param hasHighResMode Indica si el hardware ofrece un modo de resolución nativa completa.
+ * @param physicalSensorMegaPixels Megapíxeles reales de la matriz de silicio física (ej. 50MP).
+ * @param isRestrictedByOemOrOs Indica si la capa de personalización (OEM) o la versión de Android limitan el acceso directo al flujo de 50MP para apps de terceros.
+ * @param restrictionReason Explicación técnica detallada sobre la restricción de Android o de la capa del fabricante.
  */
 data class PhotoResolutionInfo(
     val maxMegaPixels: Int = 12,
     val maxResolutionString: String = "4000 × 3000",
     val standardMegaPixels: Int = 12,
-    val hasHighResMode: Boolean = false
+    val hasHighResMode: Boolean = false,
+    val physicalSensorMegaPixels: Int = 12,
+    val isRestrictedByOemOrOs: Boolean = false,
+    val restrictionReason: String? = null
 )
 
 /**
@@ -94,6 +100,23 @@ enum class DynamicRangeOption(
 }
 
 /**
+ * Relaciones de aspecto (Aspect Ratio) disponibles para la captura y visor de la cámara.
+ * - FULL: Ocupa toda la pantalla del teléfono (relación nativa del display como 20:9 o 19.5:9).
+ * - RATIO_16_9: Formato panorámico estándar para vídeo, historias y estados.
+ * - RATIO_4_3: Formato nativo del sensor físico de la cámara (máxima resolución sin recorte).
+ * - RATIO_1_1: Formato cuadrado ideal para retratos de perfil y redes sociales.
+ */
+enum class AspectRatioOption(
+    val label: String,
+    val description: String
+) {
+    FULL("Full", "Pantalla Completa"),
+    RATIO_16_9("16:9", "Panorámico 16:9"),
+    RATIO_4_3("4:3", "Sensor Completo 4:3"),
+    RATIO_1_1("1:1", "Cuadrado 1:1")
+}
+
+/**
  * Información de capacidades de hardware detectadas para grabación de vídeo.
  *
  * @param supportedQualities Lista ordenada de resoluciones soportadas por la cámara activa.
@@ -105,6 +128,34 @@ data class VideoCapabilitiesInfo(
     val supportedFps: List<Int> = listOf(30),
     val isHdrSupported: Boolean = false
 )
+
+/**
+ * Backend de renderizado gráfico disponible para la ejecución de filtros en C++20.
+ *
+ * @param id Identificador técnico interno.
+ * @param label Nombre legible para la interfaz de usuario.
+ * @param apiName Nombre formal de la API de renderizado.
+ * @param description Descripción técnica del pipeline.
+ */
+enum class GraphicsFilterBackend(
+    val id: String,
+    val label: String,
+    val apiName: String,
+    val description: String
+) {
+    VULKAN(
+        "vulkan",
+        "Vulkan 1.1",
+        "Vulkan Compute Pipeline",
+        "Cálculo paralelo de alto rendimiento y baja sobrecarga en GPU mediante la API Vulkan 1.1"
+    ),
+    OPENGL_ES(
+        "opengl_es",
+        "OpenGL ES 3.2",
+        "OpenGL ES Shaders Pipeline",
+        "Canal de shaders acelerados por GPU compatible con el 100% de dispositivos Android"
+    )
+}
 
 /**
  * Estado inmutable de la interfaz de la cámara.
@@ -146,6 +197,13 @@ data class VideoCapabilitiesInfo(
  * @param maxExposureIndex Índice máximo de compensación soportado por el hardware.
  * @param exposureStep Paso de exposición reportado por el hardware (típicamente 0.333f o 0.5f).
  * @param isExposureCompensationSupported Indica si el hardware del sensor admite compensación de exposición.
+ * @param isVulkan11Supported Indica si la GPU y procesador del teléfono soportan la especificación Vulkan 1.1+.
+ * @param vulkanVersionCode Código de versión numérica reportado por la plataforma Vulkan.
+ * @param vulkanVersionString Cadena legible de la versión de Vulkan soportada.
+ * @param openGlVersionString Cadena legible de la versión de OpenGL ES del dispositivo.
+ * @param selectedGraphicsBackend Backend de renderizado gráfico seleccionado para los filtros (Vulkan o OpenGL ES).
+ * @param isBeautyFilterEnabled Indica si el filtro de belleza y suavizado con preservación de contraste está activo.
+ * @param beautyFilterIntensity Intensidad del filtro de belleza (0.0f a 1.0f).
  */
 data class CameraUiState(
     val captureMode: CaptureMode = CaptureMode.PHOTO,
@@ -171,6 +229,7 @@ data class CameraUiState(
     val hasAudioPermission: Boolean = false,
     val isVideoSettingsOpen: Boolean = false,
     val isMaxMegapixelsEnabled: Boolean = false,
+    val isHighResInfoDialogOpen: Boolean = false,
     val photoResolutionInfo: PhotoResolutionInfo = PhotoResolutionInfo(),
     val isDeviceSteady: Boolean = true,
     val isHdrSupported: Boolean = false,
@@ -184,5 +243,14 @@ data class CameraUiState(
     val minExposureIndex: Int = -6,
     val maxExposureIndex: Int = 6,
     val exposureStep: Float = 0.33333334f,
-    val isExposureCompensationSupported: Boolean = true
+    val isExposureCompensationSupported: Boolean = true,
+    val isVulkan11Supported: Boolean = false,
+    val vulkanVersionCode: Int = 0,
+    val vulkanVersionString: String = "No detectado",
+    val openGlVersionString: String = "OpenGL ES 3.2",
+    val selectedGraphicsBackend: GraphicsFilterBackend = GraphicsFilterBackend.OPENGL_ES,
+    val isBeautyFilterEnabled: Boolean = false,
+    val beautyFilterIntensity: Float = 0.6f,
+    val aspectRatio: AspectRatioOption = AspectRatioOption.RATIO_4_3,
+    val isAspectRatioSelectorOpen: Boolean = false
 )

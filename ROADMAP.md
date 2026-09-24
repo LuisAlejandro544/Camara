@@ -61,14 +61,20 @@ Fase 1 (MVP Estable) ──> Fase 2 (Motor C++ Integrado) ──> Fase 3 (Grabac
 
 ---
 
-### 🟢 Fase 3.5: Megapíxeles Reales del Sensor y Detección de Estabilidad *(Completada)*
-- [x] **Detección de Megapíxeles Físicos del Sensor:**
-  - Cálculo dinámico de la resolución física total del sensor fotográfico (48 MP, 50 MP, 64 MP, 108 MP, 12 MP) mediante `CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP`.
-  - Conmutador directo en la barra superior (`[50MP OFF] / [50MP]`) adaptado a los MP reales del dispositivo.
-  - Configuración de `ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY` y `ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY` para capturas de resolución ultra alta.
+### 🟢 Fase 3.5: Megapíxeles Reales del Sensor, Restricciones OEM y Detección de Estabilidad *(Completada)*
+- [x] **Detección de Megapíxeles Físicos del Sensor (50MP y Ultra Alta Resolución):**
+  - Inspección simultánea de la matriz de silicio física (`SENSOR_INFO_PIXEL_ARRAY_SIZE`), el mapa de resolución máxima (`SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION` en Android 12+) y el mapa estándar (`SCALER_STREAM_CONFIGURATION_MAP`).
+  - Detección y diagnóstico de restricciones de Android < 12 (falta de API de ultra alta resolución) y bloqueos de capas OEM (Xiaomi, Tecno, Infinix, Samsung) que reservan el flujo de 50MP para apps de fábrica.
+  - Conmutador directo en la barra superior (`[50MP OFF] / [50MP]` o `[50MP (4en1)]`) con diálogo explicativo detallado sobre pixel binning.
+  - Configuración de `ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE` y `CAPTURE_MODE_MAXIMIZE_QUALITY` para desbloquear el flujo nativo de alta resolución en CameraX.
 - [x] **Detección de Estabilidad de la Mano con Acelerómetro:**
   - Clase `DeviceStabilityManager` que mide micro-movimientos para verificar si el usuario mantiene el teléfono quieto.
   - Banner reactivo en el visor ("Mantén el dispositivo quieto…") para evitar fotos movidas o trepidadas.
+- [x] **Soporte y Control Rápido de Vídeo HDR (10-bit HLG):**
+  - Botón de alternancia rápida de HDR en la barra superior en modo vídeo.
+  - Tarjeta de HDR siempre visible en los ajustes con explicación detallada de disponibilidad en el hardware y la capa OEM.
+- [x] **Iconografía Compacta y Elegante:**
+  - Rediseño de botones superiores e inferiores con contenedores translúcidos compactos de 38 dp y áreas táctiles de 48 dp para un visor despejado y listo para nuevos controles.
 - [x] **Soporte de Vídeo 2K (QHD 2560×1440):**
   - Incorporación de resolución 2K Quad HD junto a 4K UHD en la detección y selector de vídeo.
 - [x] **Zoom Completo sin Límites de Hardware:**
@@ -90,6 +96,11 @@ Fase 1 (MVP Estable) ──> Fase 2 (Motor C++ Integrado) ──> Fase 3 (Grabac
 - [x] **Control de Compensación de Exposición por Hardware (EV):**
   - Presets rápidos (-1.0 EV, -0.7 EV, -0.3 EV, 0.0 EV, +0.5 EV) y slider continuo.
   - Sincronización directa con el ISP del sensor vía `CameraControl.setExposureCompensationIndex()`.
+- [x] **Selector de Relación de Aspecto (Full, 16:9, 4:3, 1:1):**
+  - Selector desplegable dinámico en la botonera superior y en Ajustes con opciones `[Full]`, `[16:9]`, `[4:3]` y `[1:1]`.
+  - Configuración automática del `ResolutionSelector` en CameraX (`AspectRatioStrategy`).
+  - Máscara visual de encuadre en tiempo real sobre el visor para previsualizar la toma exacta.
+  - Procesamiento y recorte central automático de la foto capturada en segundo plano (`Dispatchers.IO`) sin congelar la app.
 - [ ] **Modo Pro / Manual Adicional:**
   - Bloqueo de enfoque y exposición (AE/AF Lock).
   - Ajuste manual de Balance de Blancos (Luz día, Nublado, Incandescente, Fluorescente).
@@ -102,7 +113,17 @@ Fase 1 (MVP Estable) ──> Fase 2 (Motor C++ Integrado) ──> Fase 3 (Grabac
 
 ---
 
-### 🟠 Fase 5: Fotografía Computacional en C++20 y Aceleración de Hardware
+### 🟢 Fase 5: Fotografía Computacional en C++20 y Aceleración de Hardware *(Iniciada)*
+- [x] **Detección Automática de Vulkan 1.1 y OpenGL ES en Procesador:**
+  - Inspección del flag de hardware `PackageManager.FEATURE_VULKAN_HARDWARE_VERSION` para detectar soporte de Vulkan 1.1+ (API >= 0x401000).
+  - Selección inteligente por defecto: Vulkan 1.1 si está disponible en el silicio; OpenGL ES 3.2 automático si no es soportado.
+- [x] **Selector Manual de Backend de Renderizado en Ajustes:**
+  - Sección interactiva en `SettingsScreen` para elegir entre Vulkan 1.1 y OpenGL ES 3.2 con validación de incompatibilidad.
+- [x] **Filtro de Belleza y Suavizado Nativo en C++20 (Anti-Lavado):**
+  - Implementación con filtrado bilateral guiado y detección suave de piel humana en espacio YCbCr.
+  - Mapeo tonal que preserva el contraste y el nivel de negro base: no lava la piel ni genera neblina pastosa.
+  - Optimizado y compatible para ejecutarse idénticamente en Vulkan 1.1 y OpenGL ES 3.2.
+  - Conmutador directo en la barra superior en modo foto (`[Belleza / Belleza OFF]`) y control de intensidad (slider 20% a 100%) en Ajustes.
 - [ ] **Captura y Decodificación de Formato RAW (DNG):**
   - Integración en C++ para procesar datos de sensor sin compresión.
 - [ ] **Histograma RGB en Tiempo Real:**

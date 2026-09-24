@@ -1,12 +1,14 @@
 package com.example.camera
 
 import android.view.ViewGroup
+import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.DynamicRange
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -17,12 +19,17 @@ import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,8 +37,10 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -40,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.ui.theme.CameraBlack
 import com.example.ui.theme.CameraFocusRing
 import com.example.ui.theme.CameraGridLine
 import kotlinx.coroutines.delay
@@ -69,6 +79,7 @@ fun CameraPreviewView(
     lensFacing: LensFacing,
     captureMode: CaptureMode,
     selectedQuality: VideoQualityOption,
+    aspectRatio: AspectRatioOption = AspectRatioOption.RATIO_4_3,
     isMaxMegapixelsEnabled: Boolean,
     isHdrVideoEnabled: Boolean,
     isGridEnabled: Boolean,
@@ -97,8 +108,8 @@ fun CameraPreviewView(
     // Zoom interactivo
     var currentZoomRatio by remember { mutableFloatStateOf(1.0f) }
 
-    // Reacciona al cambio de orientación de cámara, modo de captura, resolución, HDR o ciclo de vida
-    LaunchedEffect(lensFacing, captureMode, selectedQuality, isMaxMegapixelsEnabled, isHdrVideoEnabled, lifecycleOwner) {
+    // Reacciona al cambio de orientación de cámara, modo de captura, resolución, HDR, aspect ratio o ciclo de vida
+    LaunchedEffect(lensFacing, captureMode, selectedQuality, aspectRatio, isMaxMegapixelsEnabled, isHdrVideoEnabled, lifecycleOwner) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         val executor = ContextCompat.getMainExecutor(context)
 
@@ -111,7 +122,22 @@ fun CameraPreviewView(
                 CameraSelector.DEFAULT_BACK_CAMERA
             }
 
-            val preview = Preview.Builder().build()
+            // Seleccionamos la estrategia de aspecto para CameraX: 16:9 o 4:3 (1:1 y Full parten de su base óptima)
+            val cameraXAspectRatio = when (aspectRatio) {
+                AspectRatioOption.RATIO_16_9, AspectRatioOption.FULL -> AspectRatio.RATIO_16_9
+                AspectRatioOption.RATIO_4_3, AspectRatioOption.RATIO_1_1 -> AspectRatio.RATIO_4_3
+            }
+
+            val previewResolutionSelector = ResolutionSelector.Builder()
+                .setAspectRatioStrategy(
+                    AspectRatioStrategy(cameraXAspectRatio, AspectRatioStrategy.FALLBACK_RULE_AUTO)
+                )
+                .build()
+
+            val preview = Preview.Builder()
+                .setResolutionSelector(previewResolutionSelector)
+                .build()
+
             previewViewRef?.let { previewView ->
                 preview.surfaceProvider = previewView.surfaceProvider
             }
@@ -124,15 +150,29 @@ fun CameraPreviewView(
 
                     if (isMaxMegapixelsEnabled) {
                         // Modo Máxima Resolución Nativa: Máxima calidad de ISP y máxima resolución disponible
-                        val resolutionSelector = ResolutionSelector.Builder()
+                        val resolutionSelectorBuilder = ResolutionSelector.Builder()
+                            .setAspectRatioStrategy(
+                                AspectRatioStrategy(cameraXAspectRatio, AspectRatioStrategy.FALLBACK_RULE_AUTO)
+                            )
                             .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+                        try {
+                            resolutionSelectorBuilder.setAllowedResolutionMode(
+                                ResolutionSelector.PREFER_HIGHER_RESOLUTION_OVER_CAPTURE_RATE
+                            )
+                        } catch (_: Throwable) {
+                        }
+                        imageCaptureBuilder
+                            .setResolutionSelector(resolutionSelectorBuilder.build())
+                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                    } else {
+                        // Modo Estándar optimizado con selección de Aspect Ratio
+                        val resolutionSelector = ResolutionSelector.Builder()
+                            .setAspectRatioStrategy(
+                                AspectRatioStrategy(cameraXAspectRatio, AspectRatioStrategy.FALLBACK_RULE_AUTO)
+                            )
                             .build()
                         imageCaptureBuilder
                             .setResolutionSelector(resolutionSelector)
-                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
-                    } else {
-                        // Modo Estándar optimizado y rápido
-                        imageCaptureBuilder
                             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     }
 
@@ -301,6 +341,51 @@ fun CameraPreviewView(
             },
             modifier = Modifier.fillMaxSize()
         )
+
+        // Máscara de recorte visual para relación de aspecto 1:1 (cuadrado)
+        if (aspectRatio == AspectRatioOption.RATIO_1_1) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val boxWidth = maxWidth
+                val boxHeight = maxHeight
+                val squareSize = if (boxWidth < boxHeight) boxWidth else boxHeight
+                val verticalMargin = (boxHeight - squareSize) / 2
+                val horizontalMargin = (boxWidth - squareSize) / 2
+
+                if (verticalMargin > 0.dp) {
+                    // Banda superior e inferior oscura para encuadre 1:1
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(verticalMargin)
+                            .align(Alignment.TopCenter)
+                            .background(CameraBlack.copy(alpha = 0.88f))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(verticalMargin)
+                            .align(Alignment.BottomCenter)
+                            .background(CameraBlack.copy(alpha = 0.88f))
+                    )
+                } else if (horizontalMargin > 0.dp) {
+                    // Banda lateral izquierda y derecha
+                    Box(
+                        modifier = Modifier
+                            .width(horizontalMargin)
+                            .fillMaxSize()
+                            .align(Alignment.CenterStart)
+                            .background(CameraBlack.copy(alpha = 0.88f))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .width(horizontalMargin)
+                            .fillMaxSize()
+                            .align(Alignment.CenterEnd)
+                            .background(CameraBlack.copy(alpha = 0.88f))
+                    )
+                }
+            }
+        }
 
         // Cuadrícula de tercios para composición fotográfica
         if (isGridEnabled) {

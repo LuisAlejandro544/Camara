@@ -107,13 +107,14 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                // Chequeo inicial del permiso de audio
+                // Chequeo inicial del permiso de audio y detección de hardware gráfico (Vulkan 1.1 / OpenGL ES)
                 LaunchedEffect(Unit) {
                     val audioGranted = ContextCompat.checkSelfPermission(
                         context,
                         Manifest.permission.RECORD_AUDIO
                     ) == PackageManager.PERMISSION_GRANTED
                     cameraViewModel.setHasAudioPermission(audioGranted)
+                    cameraViewModel.detectGraphicsHardware(context)
                 }
 
                 val uiState by cameraViewModel.uiState.collectAsStateWithLifecycle()
@@ -161,7 +162,10 @@ class MainActivity : ComponentActivity() {
                                 uiState = uiState,
                                 onBack = { cameraViewModel.openSettings(false) },
                                 onOpenColorCalibration = { cameraViewModel.openColorCalibration(true) },
-                                onToggleGrid = { cameraViewModel.toggleGrid() }
+                                onToggleGrid = { cameraViewModel.toggleGrid() },
+                                onSelectAspectRatio = { ratio -> cameraViewModel.setAspectRatio(ratio) },
+                                onSelectGraphicsBackend = { backend -> cameraViewModel.setSelectedGraphicsBackend(backend) },
+                                onSetBeautyIntensity = { intensity -> cameraViewModel.setBeautyFilterIntensity(intensity) }
                             )
                         }
 
@@ -222,6 +226,18 @@ class MainActivity : ComponentActivity() {
                                 onOpenSettings = { cameraViewModel.openSettings(true) },
                                 onExposureLimitsDetected = { min, max, step, isSupported ->
                                     cameraViewModel.setExposureLimits(min, max, step, isSupported)
+                                },
+                                onOpenHighResInfoDialog = { open ->
+                                    cameraViewModel.setHighResInfoDialogOpen(open)
+                                },
+                                onToggleBeautyFilter = {
+                                    cameraViewModel.toggleBeautyFilter()
+                                },
+                                onSelectAspectRatio = { ratio ->
+                                    cameraViewModel.setAspectRatio(ratio)
+                                },
+                                onToggleAspectRatioSelector = {
+                                    cameraViewModel.toggleAspectRatioSelector()
                                 }
                             )
                         }
