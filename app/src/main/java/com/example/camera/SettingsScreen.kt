@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.Card
@@ -37,6 +38,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -71,6 +73,7 @@ fun SettingsScreen(
     onOpenColorCalibration: () -> Unit,
     onToggleGrid: () -> Unit,
     onSelectAspectRatio: (AspectRatioOption) -> Unit = {},
+    onSelectTimer: (TimerOption) -> Unit = {},
     onSelectGraphicsBackend: (GraphicsFilterBackend) -> Unit = {},
     onSetBeautyIntensity: (Float) -> Unit = {},
     modifier: Modifier = Modifier
@@ -248,19 +251,100 @@ fun SettingsScreen(
                     ) {
                         AspectRatioOption.entries.forEach { option ->
                             val isSelected = uiState.aspectRatio == option
-                            Surface(
-                                color = if (isSelected) CameraYellowAccent else Color.Black.copy(alpha = 0.4f),
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.dp, if (isSelected) CameraYellowAccent else Color.White.copy(alpha = 0.2f)),
+                            Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isSelected) CameraYellowAccent else Color.Black.copy(alpha = 0.4f))
+                                    .border(
+                                        BorderStroke(1.dp, if (isSelected) CameraYellowAccent else Color.White.copy(alpha = 0.2f)),
+                                        RoundedCornerShape(12.dp)
+                                    )
                                     .clickable { onSelectAspectRatio(option) }
                                     .testTag("settings_aspect_ratio_${option.label}")
                             ) {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.padding(vertical = 8.dp)
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = option.label,
+                                        color = if (isSelected) CameraBlack else CameraTextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = option.description.take(6),
+                                        color = if (isSelected) CameraBlack.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.45f),
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(
+                        color = Color.White.copy(alpha = 0.08f),
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+
+                    // Selector de Temporizador de Disparo
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Timer,
+                            contentDescription = null,
+                            tint = CameraTextPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.timer_title),
+                                color = CameraTextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "${uiState.timerOption.label} • ${uiState.timerOption.description}",
+                                color = CameraYellowAccent,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Botones de Temporizador en Settings (OFF, 3s, 5s, 10s)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        TimerOption.entries.forEach { option ->
+                            val isSelected = uiState.timerOption == option
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isSelected) CameraYellowAccent else Color.Black.copy(alpha = 0.4f))
+                                    .border(
+                                        BorderStroke(1.dp, if (isSelected) CameraYellowAccent else Color.White.copy(alpha = 0.2f)),
+                                        RoundedCornerShape(12.dp)
+                                    )
+                                    .clickable { onSelectTimer(option) }
+                                    .testTag("settings_timer_${option.label}")
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
                                 ) {
                                     Text(
                                         text = option.label,

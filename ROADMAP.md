@@ -101,11 +101,16 @@ Fase 1 (MVP Estable) ──> Fase 2 (Motor C++ Integrado) ──> Fase 3 (Grabac
   - Configuración automática del `ResolutionSelector` en CameraX (`AspectRatioStrategy`).
   - Máscara visual de encuadre en tiempo real sobre el visor para previsualizar la toma exacta.
   - Procesamiento y recorte central automático de la foto capturada en segundo plano (`Dispatchers.IO`) sin congelar la app.
+- [x] **Temporizador de Disparo (Hasta 10s):**
+  - Opciones de cuenta regresiva: Desactivado (`OFF`), 3 segundos (`3s`), 5 segundos (`5s`) y 10 segundos (`10s`).
+  - Botón de acceso directo en la botonera superior con barra desplegable rápida para cambiar en 1 toque.
+  - Sección interactiva en `SettingsScreen` con botones independientes para cada opción.
+  - Overlay animado central en el visor con número grande en amarillo (`CameraYellowAccent`), conteo regresivo y botón de cancelación inmediata.
+  - Cancelación rápida al pulsar nuevamente el botón del obturador o al cambiar a modo vídeo.
+  - Gestión fluida mediante corrutinas de Kotlin en `viewModelScope` sin bloquear el hilo principal.
 - [ ] **Modo Pro / Manual Adicional:**
   - Bloqueo de enfoque y exposición (AE/AF Lock).
   - Ajuste manual de Balance de Blancos (Luz día, Nublado, Incandescente, Fluorescente).
-- [ ] **Temporizador de Disparo:**
-  - Opciones de cuenta regresiva: Desactivado, 3 segundos, 10 segundos, con señal visual guía.
 - [ ] **Disparo en Ráfaga (Burst Mode):**
   - Mantener pulsado el obturador para capturar secuencias rápidas de fotos.
 - [ ] **Nivel de Horizonte Virtual:**

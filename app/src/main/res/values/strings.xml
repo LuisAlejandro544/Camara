@@ -71,4 +71,12 @@
     <string name="aspect_ratio_16_9_desc">Panorámico 16:9</string>
     <string name="aspect_ratio_4_3_desc">Sensor Completo 4:3</string>
     <string name="aspect_ratio_1_1_desc">Cuadrado 1:1</string>
+    <string name="timer_title">Temporizador de disparo</string>
+    <string name="timer_desc">Cuenta regresiva antes de capturar la foto</string>
+    <string name="timer_off">Desactivado</string>
+    <string name="timer_3s">3 segundos</string>
+    <string name="timer_5s">5 segundos</string>
+    <string name="timer_10s">10 segundos</string>
+    <string name="timer_cancel">Cancelar temporizador</string>
+    <string name="timer_countdown_label">Disparando en</string>
 </resources>

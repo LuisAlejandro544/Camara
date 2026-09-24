@@ -117,6 +117,24 @@ enum class AspectRatioOption(
 }
 
 /**
+ * Opciones de temporizador de disparo para fotografía (hasta un máximo de 10 segundos).
+ * - OFF: Disparo instantáneo sin cuenta regresiva.
+ * - SEC_3: Cuenta regresiva de 3 segundos (ideal para evitar trepidación y autorretratos rápidos).
+ * - SEC_5: Cuenta regresiva de 5 segundos (tiempo equilibrado para preparar la pose).
+ * - SEC_10: Cuenta regresiva de 10 segundos (tiempo máximo estándar para fotos grupales o con trípode).
+ */
+enum class TimerOption(
+    val seconds: Int,
+    val label: String,
+    val description: String
+) {
+    OFF(0, "OFF", "Desactivado"),
+    SEC_3(3, "3s", "3 segundos"),
+    SEC_5(5, "5s", "5 segundos"),
+    SEC_10(10, "10s", "10 segundos")
+}
+
+/**
  * Información de capacidades de hardware detectadas para grabación de vídeo.
  *
  * @param supportedQualities Lista ordenada de resoluciones soportadas por la cámara activa.
@@ -252,5 +270,8 @@ data class CameraUiState(
     val isBeautyFilterEnabled: Boolean = false,
     val beautyFilterIntensity: Float = 0.6f,
     val aspectRatio: AspectRatioOption = AspectRatioOption.RATIO_4_3,
-    val isAspectRatioSelectorOpen: Boolean = false
+    val isAspectRatioSelectorOpen: Boolean = false,
+    val timerOption: TimerOption = TimerOption.OFF,
+    val activeTimerSecondsRemaining: Int? = null,
+    val isTimerSelectorOpen: Boolean = false
 )

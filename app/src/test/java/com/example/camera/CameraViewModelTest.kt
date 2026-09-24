@@ -244,4 +244,46 @@ class CameraViewModelTest {
         viewModel.closeAspectRatioSelector()
         assertFalse(viewModel.uiState.value.isAspectRatioSelectorOpen)
     }
+
+    @Test
+    fun `toggleTimerOption alterna ciclicamente entre OFF, 3s, 5s y 10s`() {
+        assertEquals(TimerOption.OFF, viewModel.uiState.value.timerOption)
+
+        viewModel.toggleTimerOption()
+        assertEquals(TimerOption.SEC_3, viewModel.uiState.value.timerOption)
+
+        viewModel.toggleTimerOption()
+        assertEquals(TimerOption.SEC_5, viewModel.uiState.value.timerOption)
+
+        viewModel.toggleTimerOption()
+        assertEquals(TimerOption.SEC_10, viewModel.uiState.value.timerOption)
+
+        viewModel.toggleTimerOption()
+        assertEquals(TimerOption.OFF, viewModel.uiState.value.timerOption)
+    }
+
+    @Test
+    fun `setTimerOption actualiza el temporizador y toggleTimerSelector abre y cierra la barra`() {
+        viewModel.setTimerOption(TimerOption.SEC_5)
+        assertEquals(TimerOption.SEC_5, viewModel.uiState.value.timerOption)
+        assertFalse(viewModel.uiState.value.isTimerSelectorOpen)
+
+        viewModel.toggleTimerSelector()
+        assertTrue(viewModel.uiState.value.isTimerSelectorOpen)
+
+        viewModel.closeTimerSelector()
+        assertFalse(viewModel.uiState.value.isTimerSelectorOpen)
+    }
+
+    @Test
+    fun `cambiar a modo video cancela la cuenta regresiva del temporizador`() {
+        viewModel.setTimerOption(TimerOption.SEC_10)
+        viewModel.toggleTimerSelector()
+        assertTrue(viewModel.uiState.value.isTimerSelectorOpen)
+
+        viewModel.setCaptureMode(CaptureMode.VIDEO)
+        assertEquals(CaptureMode.VIDEO, viewModel.uiState.value.captureMode)
+        assertFalse(viewModel.uiState.value.isTimerSelectorOpen)
+        assertEquals(null, viewModel.uiState.value.activeTimerSecondsRemaining)
+    }
 }

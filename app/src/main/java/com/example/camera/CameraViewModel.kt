@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,13 +25,25 @@ class CameraViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(CameraUiState())
     val uiState: StateFlow<CameraUiState> = _uiState.asStateFlow()
 
+    // Job para la cuenta regresiva del temporizador de disparo
+    private var timerJob: Job? = null
+
     /**
      * Alterna el modo de captura entre Fotografía y Vídeo.
      */
     fun setCaptureMode(mode: CaptureMode) {
         // No permite cambiar de modo mientras se graba un vídeo
         if (_uiState.value.isRecordingVideo) return
-        _uiState.update { it.copy(captureMode = mode) }
+        if (mode == CaptureMode.VIDEO) {
+            cancelCountdown()
+        }
+        _uiState.update {
+            it.copy(
+                captureMode = mode,
+                isTimerSelectorOpen = false,
+                isAspectRatioSelectorOpen = false
+            )
+        }
     }
 
     /**
@@ -278,8 +291,117 @@ class CameraViewModel : ViewModel() {
     /**
      * Cierra explícitamente el selector de relación de aspecto.
      */
-    fun closeAspectRatioSelector() {
-        _uiState.update { it.copy(isAspectRatioSelectorOpen = false) }
+     fun closeAspectRatioSelector() {
+         _uiState.update { it.copy(isAspectRatioSelectorOpen = false) }
+     }
+
+    /**
+     * Establece la opción del temporizador de disparo (OFF, 3s, 5s, 10s).
+     * Muestra un mensaje amigable al usuario confirmando el cambio.
+     */
+    fun setTimerOption(option: TimerOption) {
+        cancelCountdown()
+        _uiState.update { currentState ->
+            currentState.copy(
+                timerOption = option,
+                isTimerSelectorOpen = false,
+                userMessage = if (option == TimerOption.OFF) {
+                    "Temporizador desactivado"
+                } else {
+                    "Temporizador fijado en ${option.description}"
+                }
+            )
+        }
+    }
+
+    /**
+     * Alterna cíclicamente el temporizador: OFF -> 3s -> 5s -> 10s -> OFF.
+     */
+    fun toggleTimerOption() {
+        cancelCountdown()
+        _uiState.update { currentState ->
+            val nextOption = when (currentState.timerOption) {
+                TimerOption.OFF -> TimerOption.SEC_3
+                TimerOption.SEC_3 -> TimerOption.SEC_5
+                TimerOption.SEC_5 -> TimerOption.SEC_10
+                TimerOption.SEC_10 -> TimerOption.OFF
+            }
+            val message = if (nextOption == TimerOption.OFF) {
+                "Temporizador desactivado"
+            } else {
+                "Temporizador: ${nextOption.description}"
+            }
+            currentState.copy(
+                timerOption = nextOption,
+                userMessage = message
+            )
+        }
+    }
+
+    /**
+     * Abre o cierra la barra selectora de temporizador en la parte superior.
+     */
+    fun toggleTimerSelector() {
+        if (_uiState.value.isRecordingVideo) return
+        _uiState.update { currentState ->
+            currentState.copy(
+                isTimerSelectorOpen = !currentState.isTimerSelectorOpen,
+                isAspectRatioSelectorOpen = false // Cerrar el selector de aspecto para evitar sobreposiciones
+            )
+        }
+    }
+
+    /**
+     * Cierra explícitamente el selector de temporizador.
+     */
+    fun closeTimerSelector() {
+        _uiState.update { it.copy(isTimerSelectorOpen = false) }
+    }
+
+    /**
+     * Inicia la cuenta regresiva del temporizador antes de disparar la fotografía.
+     * Si el temporizador está desactivado (OFF), invoca [onFinished] inmediatamente.
+     */
+    fun startCountdown(onFinished: () -> Unit) {
+        val duration = _uiState.value.timerOption.seconds
+        if (duration <= 0) {
+            onFinished()
+            return
+        }
+
+        cancelCountdown()
+        timerJob = viewModelScope.launch(Dispatchers.Main) {
+            var remaining = duration
+            while (remaining > 0) {
+                _uiState.update { it.copy(activeTimerSecondsRemaining = remaining) }
+                delay(1000L)
+                remaining--
+            }
+            _uiState.update { it.copy(activeTimerSecondsRemaining = null) }
+            onFinished()
+        }
+    }
+
+    /**
+     * Cancela la cuenta regresiva activa del temporizador si el usuario la interrumpe.
+     */
+    fun cancelCountdown() {
+        timerJob?.cancel()
+        timerJob = null
+        if (_uiState.value.activeTimerSecondsRemaining != null) {
+            _uiState.update {
+                it.copy(
+                    activeTimerSecondsRemaining = null,
+                    userMessage = "Temporizador cancelado"
+                )
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        timerJob?.cancel()
+        timerJob = null
     }
 
     /**

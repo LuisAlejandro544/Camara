@@ -51,6 +51,8 @@ import androidx.compose.material.icons.filled.HdrOn
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.TimerOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHost
@@ -134,6 +136,10 @@ fun CameraScreen(
     onToggleBeautyFilter: () -> Unit = {},
     onSelectAspectRatio: (AspectRatioOption) -> Unit = {},
     onToggleAspectRatioSelector: () -> Unit = {},
+    onSetTimerOption: (TimerOption) -> Unit = {},
+    onToggleTimerSelector: () -> Unit = {},
+    onStartCountdown: ((() -> Unit)) -> Unit = {},
+    onCancelCountdown: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -275,6 +281,79 @@ fun CameraScreen(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold
                     )
+                }
+            }
+        }
+
+        // 3.3. Overlay Central de Cuenta Regresiva del Temporizador de Disparo
+        if (uiState.activeTimerSecondsRemaining != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    // Círculo translúcido de cuenta regresiva con número grande en amarillo
+                    Box(
+                        modifier = Modifier
+                            .size(130.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.75f))
+                            .border(3.dp, CameraYellowAccent, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${uiState.activeTimerSecondsRemaining}",
+                            color = CameraYellowAccent,
+                            fontSize = 68.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = stringResource(R.string.timer_countdown_label) + " ${uiState.activeTimerSecondsRemaining}s…",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Botón de Cancelación del Temporizador
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.8f),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable { onCancelCountdown() }
+                            .testTag("cancel_timer_button")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.timer_cancel),
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.timer_cancel),
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -484,12 +563,48 @@ fun CameraScreen(
                     }
                 }
 
-                // Derecha: Selector de Aspect Ratio, Control de Cuadrícula y Botón de Configuración
+                // Derecha: Selector de Temporizador, Selector de Aspect Ratio, Control de Cuadrícula y Botón de Configuración
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Botón de Selector de Relación de Aspecto (Full, 16:9, 4:3, 1:1)
+                    // 1. Botón de Temporizador de Disparo (OFF, 3s, 5s, 10s)
+                    if (uiState.captureMode == CaptureMode.PHOTO) {
+                        val isTimerActive = uiState.timerOption != TimerOption.OFF
+                        val isTimerBarOpen = uiState.isTimerSelectorOpen
+                        Surface(
+                            color = if (isTimerBarOpen || isTimerActive) CameraYellowAccent else Color.Black.copy(alpha = 0.55f),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.dp, if (isTimerBarOpen || isTimerActive) CameraYellowAccent else Color.White.copy(alpha = 0.16f)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .clickable(enabled = !uiState.isRecordingVideo) { onToggleTimerSelector() }
+                                .testTag("timer_toggle_button")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isTimerActive) Icons.Default.Timer else Icons.Default.TimerOff,
+                                    contentDescription = stringResource(R.string.timer_title),
+                                    tint = if (isTimerBarOpen || isTimerActive) CameraBlack else Color.White.copy(alpha = 0.6f),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                if (isTimerActive) {
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = uiState.timerOption.label,
+                                        color = CameraBlack,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Botón de Selector de Relación de Aspecto (Full, 16:9, 4:3, 1:1)
                     Surface(
                         color = if (uiState.isAspectRatioSelectorOpen) CameraYellowAccent else Color.Black.copy(alpha = 0.55f),
                         shape = RoundedCornerShape(18.dp),
@@ -513,7 +628,7 @@ fun CameraScreen(
                         }
                     }
 
-                    // Control de Cuadrícula (Compacto y elegante)
+                    // 3. Control de Cuadrícula (Compacto y elegante)
                     ElegantTopIconButton(
                         onClick = onToggleGrid,
                         icon = if (uiState.isGridEnabled) Icons.Default.GridOn else Icons.Default.GridOff,
@@ -522,7 +637,7 @@ fun CameraScreen(
                         testTag = "grid_toggle_button"
                     )
 
-                    // Botón de Configuración (Tuerca independiente)
+                    // 4. Botón de Configuración (Tuerca independiente)
                     ElegantTopIconButton(
                         onClick = onOpenSettings,
                         enabled = !uiState.isRecordingVideo,
@@ -531,6 +646,58 @@ fun CameraScreen(
                         tint = CameraTextPrimary,
                         testTag = "settings_button"
                     )
+                }
+            }
+
+            // Barra horizontal desplegable con las 4 opciones de Temporizador: [OFF] [3s] [5s] [10s]
+            if (uiState.isTimerSelectorOpen && !uiState.isRecordingVideo) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.90f),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp)
+                        .testTag("timer_selector_bar")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TimerOption.entries.forEach { option ->
+                            val isSelected = uiState.timerOption == option
+                            Surface(
+                                color = if (isSelected) CameraYellowAccent else Color.Transparent,
+                                shape = RoundedCornerShape(16.dp),
+                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { onSetTimerOption(option) }
+                                    .testTag("timer_option_${option.label}")
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = option.label,
+                                        color = if (isSelected) CameraBlack else CameraTextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = option.description,
+                                        color = if (isSelected) CameraBlack.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -759,19 +926,30 @@ fun CameraScreen(
                     isRecordingVideo = uiState.isRecordingVideo,
                     onClick = {
                         if (uiState.captureMode == CaptureMode.PHOTO) {
-                            if (!uiState.isCapturing) {
-                                CameraCaptureManager.takePhoto(
-                                    context = context,
-                                    imageCapture = activeImageCapture,
-                                    flashMode = uiState.flashMode,
-                                    aspectRatio = uiState.aspectRatio,
-                                    isBeautyFilterEnabled = uiState.isBeautyFilterEnabled,
-                                    beautyIntensity = uiState.beautyFilterIntensity,
-                                    isVulkanBackend = uiState.selectedGraphicsBackend == GraphicsFilterBackend.VULKAN,
-                                    onStart = onCaptureStarted,
-                                    onSuccess = onPhotoCaptured,
-                                    onError = onCaptureError
-                                )
+                            if (uiState.activeTimerSecondsRemaining != null) {
+                                // Tocar el obturador durante la cuenta regresiva cancela el temporizador
+                                onCancelCountdown()
+                            } else if (!uiState.isCapturing) {
+                                val performPhotoCapture = {
+                                    CameraCaptureManager.takePhoto(
+                                        context = context,
+                                        imageCapture = activeImageCapture,
+                                        flashMode = uiState.flashMode,
+                                        aspectRatio = uiState.aspectRatio,
+                                        isBeautyFilterEnabled = uiState.isBeautyFilterEnabled,
+                                        beautyIntensity = uiState.beautyFilterIntensity,
+                                        isVulkanBackend = uiState.selectedGraphicsBackend == GraphicsFilterBackend.VULKAN,
+                                        onStart = onCaptureStarted,
+                                        onSuccess = onPhotoCaptured,
+                                        onError = onCaptureError
+                                    )
+                                }
+
+                                if (uiState.timerOption == TimerOption.OFF) {
+                                    performPhotoCapture()
+                                } else {
+                                    onStartCountdown(performPhotoCapture)
+                                }
                             }
                         } else {
                             // Modo Vídeo: Iniciar o detener grabación

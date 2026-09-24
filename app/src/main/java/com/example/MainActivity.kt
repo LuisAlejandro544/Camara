@@ -164,6 +164,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenColorCalibration = { cameraViewModel.openColorCalibration(true) },
                                 onToggleGrid = { cameraViewModel.toggleGrid() },
                                 onSelectAspectRatio = { ratio -> cameraViewModel.setAspectRatio(ratio) },
+                                onSelectTimer = { timer -> cameraViewModel.setTimerOption(timer) },
                                 onSelectGraphicsBackend = { backend -> cameraViewModel.setSelectedGraphicsBackend(backend) },
                                 onSetBeautyIntensity = { intensity -> cameraViewModel.setBeautyFilterIntensity(intensity) }
                             )
@@ -238,6 +239,18 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onToggleAspectRatioSelector = {
                                     cameraViewModel.toggleAspectRatioSelector()
+                                },
+                                onSetTimerOption = { timer ->
+                                    cameraViewModel.setTimerOption(timer)
+                                },
+                                onToggleTimerSelector = {
+                                    cameraViewModel.toggleTimerSelector()
+                                },
+                                onStartCountdown = { onFinished ->
+                                    cameraViewModel.startCountdown(onFinished)
+                                },
+                                onCancelCountdown = {
+                                    cameraViewModel.cancelCountdown()
                                 }
                             )
                         }
