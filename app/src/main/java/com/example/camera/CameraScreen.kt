@@ -101,6 +101,7 @@ fun CameraScreen(
     onToggleFlash: () -> Unit,
     onToggleLens: () -> Unit,
     onToggleGrid: () -> Unit,
+    onToggleMaxMegapixels: () -> Unit,
     onZoomChanged: (Float) -> Unit,
     onCaptureStarted: () -> Unit,
     onPhotoCaptured: (Uri, String) -> Unit,
@@ -112,11 +113,16 @@ fun CameraScreen(
     onSelectQuality: (VideoQualityOption) -> Unit,
     onSelectFps: (Int) -> Unit,
     onToggleAudio: () -> Unit,
+    onToggleHdr: () -> Unit,
     onOpenVideoSettings: (Boolean) -> Unit,
     onCapabilitiesDetected: (VideoCapabilitiesInfo) -> Unit,
+    onPhotoCapabilitiesDetected: (PhotoResolutionInfo) -> Unit,
     onThumbnailClick: (Uri) -> Unit,
     onClearUserMessage: () -> Unit,
     onRequestAudioPermission: () -> Unit,
+    onZoomLimitsDetected: (Float, Float) -> Unit,
+    onOpenSettings: () -> Unit,
+    onExposureLimitsDetected: (min: Int, max: Int, step: Float, isSupported: Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -139,16 +145,23 @@ fun CameraScreen(
             .fillMaxSize()
             .background(CameraBlack)
     ) {
-        // 1. Visor en vivo con soporte para Fotos y Vídeo
+        // 1. Visor en vivo con soporte para Fotos (High-Res MP) y Vídeo (4K/2K/HD) sin límite artificial de zoom
         CameraPreviewView(
             lensFacing = uiState.lensFacing,
             captureMode = uiState.captureMode,
             selectedQuality = uiState.selectedVideoQuality,
+            isMaxMegapixelsEnabled = uiState.isMaxMegapixelsEnabled,
+            isHdrVideoEnabled = uiState.isHdrVideoEnabled,
             isGridEnabled = uiState.isGridEnabled,
+            zoomRatio = uiState.zoomRatio,
+            targetExposureIndex = uiState.exposureCompensationIndex,
             onImageCaptureReady = { capture -> activeImageCapture = capture },
             onVideoCaptureReady = { videoCapture -> activeVideoCapture = videoCapture },
             onCapabilitiesDetected = onCapabilitiesDetected,
+            onPhotoCapabilitiesDetected = onPhotoCapabilitiesDetected,
+            onZoomLimitsDetected = onZoomLimitsDetected,
             onZoomChanged = onZoomChanged,
+            onExposureLimitsDetected = onExposureLimitsDetected,
             modifier = Modifier.fillMaxSize()
         )
 
@@ -161,8 +174,8 @@ fun CameraScreen(
             )
         }
 
-        // 3. Indicador de nivel de Zoom (aparece si zoom > 1.05x)
-        if (uiState.zoomRatio > 1.05f) {
+        // 3. Indicador flotante de nivel de Zoom (aparece si el zoom difiere de 1.0x)
+        if (uiState.zoomRatio > 1.05f || uiState.zoomRatio < 0.95f) {
             Surface(
                 color = CameraControlBackground,
                 shape = RoundedCornerShape(16.dp),
@@ -177,6 +190,80 @@ fun CameraScreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
+            }
+        }
+
+        // 3.1. Aviso visual dinámico en modo Alta Resolución: "Mantén el dispositivo quieto…"
+        if (uiState.captureMode == CaptureMode.PHOTO && uiState.isMaxMegapixelsEnabled) {
+            Surface(
+                color = if (uiState.isDeviceSteady) Color(0xFF1E2B1E).copy(alpha = 0.85f) else Color(0xFF332014).copy(alpha = 0.9f),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    if (uiState.isDeviceSteady) Color(0xFF4CAF50).copy(alpha = 0.8f) else Color(0xFFFFB300).copy(alpha = 0.8f)
+                ),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 70.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(if (uiState.isDeviceSteady) Color(0xFF4CAF50) else Color(0xFFFFB300))
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (uiState.isDeviceSteady) {
+                            "${uiState.photoResolutionInfo.maxMegaPixels}MP • " + stringResource(R.string.hold_steady_message)
+                        } else {
+                            "${uiState.photoResolutionInfo.maxMegaPixels}MP • Estabiliza la mano…"
+                        },
+                        color = if (uiState.isDeviceSteady) Color(0xFFE8F5E9) else Color(0xFFFFF8E1),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        // 3.2. Distintivo sutil de Calibración Antilavado activa
+        if (uiState.captureMode == CaptureMode.PHOTO && uiState.isAntiWashedModeEnabled && !uiState.isMaxMegapixelsEnabled) {
+            Surface(
+                color = CameraControlBackground.copy(alpha = 0.85f),
+                shape = RoundedCornerShape(16.dp),
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    CameraYellowAccent.copy(alpha = 0.4f)
+                ),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 70.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(CameraYellowAccent)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Antilavado: ${String.format(Locale.US, "%.1f", uiState.exposureCompensationEv)} EV • ${uiState.colorProfile.label}",
+                        color = CameraYellowAccent,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
 
@@ -222,12 +309,13 @@ fun CameraScreen(
                     )
                 }
 
-                // Centro: Indicador de Grabación Activa O Badge de Resolución
+                // Centro: Indicador de Grabación Activa, Badge de Vídeo, O Badge de Megapíxeles Reales de Foto
                 if (uiState.isRecordingVideo) {
                     // Cronómetro de Grabación con punto rojo pulsante
                     VideoRecordingBadge(durationSeconds = uiState.recordingDurationSeconds)
                 } else if (uiState.captureMode == CaptureMode.VIDEO) {
-                    // Botón para desplegar ajustes de vídeo (calidad y FPS detectados)
+                    // Botón para desplegar ajustes de vídeo (4K, 2K QHD, FHD, FPS detectados y HDR)
+                    val hdrTag = if (uiState.isHdrVideoEnabled) " • HDR" else ""
                     Surface(
                         color = CameraControlBackground,
                         shape = RoundedCornerShape(20.dp),
@@ -240,7 +328,7 @@ fun CameraScreen(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Text(
-                                text = "${uiState.selectedVideoQuality.label} • ${uiState.selectedFps} FPS",
+                                text = "${uiState.selectedVideoQuality.label} • ${uiState.selectedFps} FPS$hdrTag",
                                 color = CameraYellowAccent,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
@@ -255,37 +343,67 @@ fun CameraScreen(
                         }
                     }
                 } else {
-                    // Modo Foto: Badge visual
+                    // Modo Foto: Badge con los megapíxeles reales soportados por el teléfono
+                    val maxMp = uiState.photoResolutionInfo.maxMegaPixels
                     Surface(
-                        color = CameraControlBackground,
-                        shape = RoundedCornerShape(20.dp)
+                        color = if (uiState.isMaxMegapixelsEnabled) CameraYellowAccent else CameraControlBackground,
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .clickable { onToggleMaxMegapixels() }
+                            .testTag("photo_megapixels_toggle_button")
                     ) {
-                        Text(
-                            text = stringResource(R.string.mode_photo),
-                            color = CameraYellowAccent,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.sp,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = if (uiState.isMaxMegapixelsEnabled) "${maxMp}MP" else "${maxMp}MP OFF",
+                                color = if (uiState.isMaxMegapixelsEnabled) CameraBlack else CameraTextPrimary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
                     }
                 }
 
-                // Control de Cuadrícula
-                IconButton(
-                    onClick = onToggleGrid,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(CameraControlBackground, CircleShape)
-                        .testTag("grid_toggle_button")
+                // Derecha: Control de Cuadrícula y Botón de Configuración (Tuerca)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    val gridIcon = if (uiState.isGridEnabled) Icons.Default.GridOn else Icons.Default.GridOff
-                    val tintColor = if (uiState.isGridEnabled) CameraYellowAccent else Color.White.copy(alpha = 0.6f)
-                    Icon(
-                        imageVector = gridIcon,
-                        contentDescription = "Cuadrícula",
-                        tint = tintColor
-                    )
+                    // Control de Cuadrícula
+                    IconButton(
+                        onClick = onToggleGrid,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(CameraControlBackground, CircleShape)
+                            .testTag("grid_toggle_button")
+                    ) {
+                        val gridIcon = if (uiState.isGridEnabled) Icons.Default.GridOn else Icons.Default.GridOff
+                        val tintColor = if (uiState.isGridEnabled) CameraYellowAccent else Color.White.copy(alpha = 0.6f)
+                        Icon(
+                            imageVector = gridIcon,
+                            contentDescription = "Cuadrícula",
+                            tint = tintColor
+                        )
+                    }
+
+                    // Botón de Configuración (Tuerca independiente)
+                    IconButton(
+                        onClick = onOpenSettings,
+                        enabled = !uiState.isRecordingVideo,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .background(CameraControlBackground, CircleShape)
+                            .testTag("settings_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = stringResource(R.string.settings_desc),
+                            tint = CameraTextPrimary
+                        )
+                    }
                 }
             }
         }
@@ -307,6 +425,69 @@ fun CameraScreen(
                 .navigationBarsPadding()
                 .padding(bottom = 16.dp)
         ) {
+            // Selector rápido de niveles de Zoom dinámicos (se adapta a los límites reales del hardware: 1x, 2x, 5x, 10x...)
+            val maxZ = uiState.maxZoomRatio
+            val minZ = uiState.minZoomRatio
+            val zoomSteps = remember(minZ, maxZ) {
+                val list = mutableListOf<Float>()
+                if (minZ < 0.95f) list.add(minZ) // Gran angular (0.5x o 0.6x si el sensor lo tiene)
+                list.add(1.0f)
+                if (maxZ >= 2.0f) list.add(2.0f)
+                if (maxZ >= 5.0f) list.add(5.0f)
+                if (maxZ >= 10.0f) list.add(10.0f)
+                // Si el dispositivo soporta más de 10x (ej. 20x, 30x, 50x o 100x), agregamos su tope máximo real
+                if (maxZ > 10.5f && !list.contains(maxZ)) {
+                    list.add(maxZ)
+                }
+                list.sorted()
+            }
+
+            if (zoomSteps.size > 1 && !uiState.isRecordingVideo) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(20.dp),
+                        border = androidx.compose.foundation.BorderStroke(0.5.dp, Color.White.copy(alpha = 0.2f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            zoomSteps.forEach { step ->
+                                val isSelected = kotlin.math.abs(uiState.zoomRatio - step) < 0.15f
+                                val label = if (step >= 1.0f && step % 1.0f == 0f) {
+                                    "${step.toInt()}x"
+                                } else {
+                                    String.format(Locale.US, "%.1fx", step)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isSelected) CameraYellowAccent else Color.Transparent)
+                                        .clickable { onZoomChanged(step) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) CameraBlack else Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // Selector de Modos: FOTO | VÍDEO
             Row(
                 modifier = Modifier
@@ -468,7 +649,7 @@ fun CameraScreen(
             }
         }
 
-        // 6. Diálogo de Ajustes de Vídeo (Resolución y FPS detectados)
+        // 6. Diálogo de Ajustes de Vídeo (Resolución, FPS y HDR si el sensor lo soporta)
         if (uiState.isVideoSettingsOpen) {
             VideoSettingsSheet(
                 uiState = uiState,
@@ -481,6 +662,7 @@ fun CameraScreen(
                     onOpenVideoSettings(false)
                 },
                 onToggleAudio = onToggleAudio,
+                onToggleHdr = onToggleHdr,
                 onDismiss = { onOpenVideoSettings(false) }
             )
         }

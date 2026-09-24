@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.HdrOn
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -56,12 +57,14 @@ import com.example.ui.theme.CameraYellowAccent
 /**
  * Diálogo de configuración avanzada para los parámetros de grabación de vídeo.
  * Permite seleccionar entre las resoluciones y tasas de cuadros (FPS) detectadas
- * físicamente en el sensor del teléfono, además de activar o desactivar el micrófono.
+ * físicamente en el sensor del teléfono, además de activar o desactivar el micrófono
+ * y el modo HDR (10 bits) si el hardware del sensor lo admite.
  *
  * @param uiState Estado actual de la cámara con las capacidades detectadas.
  * @param onSelectQuality Callback invocado al seleccionar una resolución.
  * @param onSelectFps Callback invocado al seleccionar una tasa de FPS.
  * @param onToggleAudio Callback invocado al alternar la grabación de audio.
+ * @param onToggleHdr Callback invocado al alternar la grabación en HDR de 10 bits.
  * @param onDismiss Callback para cerrar el diálogo.
  */
 @Composable
@@ -70,6 +73,7 @@ fun VideoSettingsSheet(
     onSelectQuality: (VideoQualityOption) -> Unit,
     onSelectFps: (Int) -> Unit,
     onToggleAudio: () -> Unit,
+    onToggleHdr: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -260,7 +264,73 @@ fun VideoSettingsSheet(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Sección 3: Conmutador de Grabación de Audio
+                // Sección 3: Modo HDR (10-bit HLG) - Solo se muestra si el sensor lo soporta físicamente
+                if (uiState.isHdrSupported) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (uiState.isHdrVideoEnabled) CameraYellowAccent.copy(alpha = 0.15f) else CameraControlBackground
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                        border = if (uiState.isHdrVideoEnabled) {
+                            androidx.compose.foundation.BorderStroke(1.5.dp, CameraYellowAccent)
+                        } else null,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.HdrOn,
+                                    contentDescription = null,
+                                    tint = if (uiState.isHdrVideoEnabled) CameraYellowAccent else CameraTextSecondary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = stringResource(R.string.video_hdr_label),
+                                        color = if (uiState.isHdrVideoEnabled) CameraYellowAccent else CameraTextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        text = if (uiState.isHdrVideoEnabled) {
+                                            stringResource(R.string.video_hdr_desc)
+                                        } else {
+                                            stringResource(R.string.video_sdr_desc)
+                                        },
+                                        color = CameraTextSecondary,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+
+                            Switch(
+                                checked = uiState.isHdrVideoEnabled,
+                                onCheckedChange = { onToggleHdr() },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = CameraBlack,
+                                    checkedTrackColor = CameraYellowAccent,
+                                    uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
+                                    uncheckedTrackColor = Color.White.copy(alpha = 0.2f)
+                                ),
+                                modifier = Modifier.testTag("hdr_video_toggle_switch")
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Sección 4: Conmutador de Grabación de Audio
                 Card(
                     colors = CardDefaults.cardColors(containerColor = CameraControlBackground),
                     shape = RoundedCornerShape(14.dp),

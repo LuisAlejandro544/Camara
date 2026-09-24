@@ -2,10 +2,16 @@ package com.example.camera
 
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.ImageFormat
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.params.StreamConfigurationMap
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Size
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.core.CameraInfo
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.core.content.ContextCompat
@@ -13,15 +19,67 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 /**
  * Gestor de captura de imágenes utilizando CameraX y MediaStore.
  * Almacena las fotos en el directorio público Pictures/Camara para que
  * sean accesibles inmediatamente y persistentes en el dispositivo.
+ * Detecta los megapíxeles reales soportados físicamente por el sensor.
  */
 object CameraCaptureManager {
 
     private const val FILENAME_FORMAT = "yyyyMMdd_HHmmss_SSS"
+
+    /**
+     * Inspecciona los metadatos físicos del sensor de la cámara activa mediante Camera2
+     * para calcular los megapíxeles máximos reales soportados por el hardware.
+     *
+     * @param cameraInfo Instancia de [CameraInfo] provista por CameraX.
+     * @return [PhotoResolutionInfo] con los megapíxeles y dimensiones reales del sensor.
+     */
+    fun detectPhotoCapabilities(cameraInfo: CameraInfo): PhotoResolutionInfo {
+        return try {
+            val camera2Info = Camera2CameraInfo.from(cameraInfo)
+            val streamMap = camera2Info.getCameraCharacteristic(
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
+            )
+            val jpegSizes: Array<Size>? = streamMap?.getOutputSizes(ImageFormat.JPEG)
+
+            if (!jpegSizes.isNullOrEmpty()) {
+                // Ordenar por área total (ancho * alto) descendente
+                val sortedSizes = jpegSizes.sortedByDescending { it.width.toLong() * it.height.toLong() }
+                val largestSize = sortedSizes.first()
+                val totalPixels = largestSize.width.toLong() * largestSize.height.toLong()
+                val maxMp = (totalPixels / 1_000_000.0).roundToInt()
+
+                // Si hay tamaños más pequeños estándar (alrededor de 12MP), detectamos si hay salto de resolución
+                val hasHighRes = maxMp > 16 || sortedSizes.size > 1
+                val standardMp = if (maxMp > 16) 12 else maxMp
+
+                PhotoResolutionInfo(
+                    maxMegaPixels = maxMp.coerceAtLeast(1),
+                    maxResolutionString = "${largestSize.width} × ${largestSize.height}",
+                    standardMegaPixels = standardMp,
+                    hasHighResMode = hasHighRes
+                )
+            } else {
+                PhotoResolutionInfo(
+                    maxMegaPixels = 12,
+                    maxResolutionString = "4000 × 3000",
+                    standardMegaPixels = 12,
+                    hasHighResMode = false
+                )
+            }
+        } catch (_: Exception) {
+            PhotoResolutionInfo(
+                maxMegaPixels = 12,
+                maxResolutionString = "4000 × 3000",
+                standardMegaPixels = 12,
+                hasHighResMode = false
+            )
+        }
+    }
 
     /**
      * Realiza la toma de una foto utilizando el caso de uso [ImageCapture] configurado.

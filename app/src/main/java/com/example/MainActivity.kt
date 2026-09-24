@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.camera.CameraPermissionScreen
 import com.example.camera.CameraScreen
 import com.example.camera.CameraViewModel
+import com.example.camera.DeviceStabilityManager
 import com.example.camera.PhotoPreviewScreen
 import com.example.ui.theme.CameraBlack
 import com.example.ui.theme.MyApplicationTheme
@@ -49,6 +50,22 @@ class MainActivity : ComponentActivity() {
             MyApplicationTheme {
                 val context = LocalContext.current
                 val lifecycleOwner = LocalLifecycleOwner.current
+
+                // Gestor de estabilidad del dispositivo mediante acelerómetro
+                val stabilityManager = remember { DeviceStabilityManager(context) }
+
+                DisposableEffect(lifecycleOwner) {
+                    lifecycleOwner.lifecycle.addObserver(stabilityManager)
+                    onDispose {
+                        lifecycleOwner.lifecycle.removeObserver(stabilityManager)
+                    }
+                }
+
+                // Recolectar estado de estabilidad física y actualizar el ViewModel
+                val isDeviceSteady by stabilityManager.isDeviceSteady.collectAsStateWithLifecycle()
+                LaunchedEffect(isDeviceSteady) {
+                    cameraViewModel.setDeviceSteady(isDeviceSteady)
+                }
 
                 // Estado de verificación del permiso de cámara
                 var hasCameraPermission by remember {
@@ -126,7 +143,29 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 3. Pantalla principal de la cámara (Fotografía y Grabación de Vídeo)
+                        // 3. Pantalla independiente de Calibración de Color (Anti-Colores Lavados y Pasteles)
+                        uiState.isColorCalibrationOpen -> {
+                            com.example.camera.ColorCalibrationScreen(
+                                uiState = uiState,
+                                onBack = { cameraViewModel.openColorCalibration(false) },
+                                onToggleAntiWashedMode = { cameraViewModel.toggleAntiWashedMode() },
+                                onSelectColorProfile = { profile -> cameraViewModel.setColorProfile(profile) },
+                                onSelectExposureEv = { ev -> cameraViewModel.setExposureEv(ev) },
+                                onResetDefaults = { cameraViewModel.resetColorCalibrationToDefaults() }
+                            )
+                        }
+
+                        // 4. Pantalla independiente de Configuración General
+                        uiState.isSettingsOpen -> {
+                            com.example.camera.SettingsScreen(
+                                uiState = uiState,
+                                onBack = { cameraViewModel.openSettings(false) },
+                                onOpenColorCalibration = { cameraViewModel.openColorCalibration(true) },
+                                onToggleGrid = { cameraViewModel.toggleGrid() }
+                            )
+                        }
+
+                        // 5. Pantalla principal de la cámara (Fotografía y Grabación de Vídeo)
                         else -> {
                             CameraScreen(
                                 uiState = uiState,
@@ -134,6 +173,7 @@ class MainActivity : ComponentActivity() {
                                 onToggleFlash = { cameraViewModel.toggleFlashMode() },
                                 onToggleLens = { cameraViewModel.toggleLensFacing() },
                                 onToggleGrid = { cameraViewModel.toggleGrid() },
+                                onToggleMaxMegapixels = { cameraViewModel.toggleMaxMegapixels() },
                                 onZoomChanged = { zoom -> cameraViewModel.setZoomRatio(zoom) },
                                 onCaptureStarted = { cameraViewModel.onCaptureStarted() },
                                 onPhotoCaptured = { uri, path ->
@@ -155,9 +195,13 @@ class MainActivity : ComponentActivity() {
                                 onSelectQuality = { quality -> cameraViewModel.setVideoQuality(quality) },
                                 onSelectFps = { fps -> cameraViewModel.setVideoFps(fps) },
                                 onToggleAudio = { cameraViewModel.toggleAudioRecording() },
+                                onToggleHdr = { cameraViewModel.toggleHdrVideo() },
                                 onOpenVideoSettings = { open -> cameraViewModel.openVideoSettings(open) },
                                 onCapabilitiesDetected = { caps ->
                                     cameraViewModel.setVideoCapabilities(caps)
+                                },
+                                onPhotoCapabilitiesDetected = { photoCaps ->
+                                    cameraViewModel.setPhotoCapabilities(photoCaps)
                                 },
                                 onThumbnailClick = { uri ->
                                     cameraViewModel.openPhotoPreview(uri)
@@ -171,6 +215,13 @@ class MainActivity : ComponentActivity() {
                                     if (!isAudioGranted) {
                                         audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                     }
+                                },
+                                onZoomLimitsDetected = { minZoom, maxZoom ->
+                                    cameraViewModel.setZoomLimits(minZoom, maxZoom)
+                                },
+                                onOpenSettings = { cameraViewModel.openSettings(true) },
+                                onExposureLimitsDetected = { min, max, step, isSupported ->
+                                    cameraViewModel.setExposureLimits(min, max, step, isSupported)
                                 }
                             )
                         }

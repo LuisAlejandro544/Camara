@@ -54,7 +54,10 @@ class CameraViewModel : ViewModel() {
                 supportedVideoQualities = capabilities.supportedQualities,
                 selectedVideoQuality = validQuality,
                 supportedFps = capabilities.supportedFps,
-                selectedFps = validFps
+                selectedFps = validFps,
+                isHdrSupported = capabilities.isHdrSupported,
+                // Si el sensor no soporta HDR, aseguramos que se apague
+                isHdrVideoEnabled = if (capabilities.isHdrSupported) currentState.isHdrVideoEnabled else false
             )
         }
     }
@@ -80,6 +83,27 @@ class CameraViewModel : ViewModel() {
      */
     fun toggleAudioRecording() {
         _uiState.update { it.copy(isAudioEnabled = !it.isAudioEnabled) }
+    }
+
+    /**
+     * Alterna la grabación de vídeo en Alto Rango Dinámico (HDR de 10 bits).
+     * Solo permite activarse si el hardware del sensor lo soporta.
+     */
+    fun toggleHdrVideo() {
+        if (_uiState.value.isRecordingVideo) return
+        _uiState.update { currentState ->
+            if (!currentState.isHdrSupported) return@update currentState
+            val newHdrState = !currentState.isHdrVideoEnabled
+            val message = if (newHdrState) {
+                "Vídeo HDR de 10 bits activado (HLG)"
+            } else {
+                "Vídeo estándar (SDR) activado"
+            }
+            currentState.copy(
+                isHdrVideoEnabled = newHdrState,
+                userMessage = message
+            )
+        }
     }
 
     /**
@@ -144,6 +168,40 @@ class CameraViewModel : ViewModel() {
     }
 
     /**
+     * Alterna el modo de máxima resolución de megapíxeles físicos del sensor.
+     */
+    fun toggleMaxMegapixels() {
+        if (_uiState.value.isRecordingVideo) return
+        _uiState.update { currentState ->
+            val newState = !currentState.isMaxMegapixelsEnabled
+            val mp = currentState.photoResolutionInfo.maxMegaPixels
+            val message = if (newState) {
+                "Modo ${mp}MP activado. Mantén el teléfono quieto al disparar."
+            } else {
+                "Modo estándar activado."
+            }
+            currentState.copy(
+                isMaxMegapixelsEnabled = newState,
+                userMessage = message
+            )
+        }
+    }
+
+    /**
+     * Registra las capacidades de resolución física del sensor fotográfico detectadas por Camera2.
+     */
+    fun setPhotoCapabilities(info: PhotoResolutionInfo) {
+        _uiState.update { it.copy(photoResolutionInfo = info) }
+    }
+
+    /**
+     * Actualiza el estado de estabilidad del teléfono detectado por el acelerómetro.
+     */
+    fun setDeviceSteady(isSteady: Boolean) {
+        _uiState.update { it.copy(isDeviceSteady = isSteady) }
+    }
+
+    /**
      * Alterna cíclicamente el modo del flash: Automático -> Activado -> Desactivado.
      */
     fun toggleFlashMode() {
@@ -181,11 +239,26 @@ class CameraViewModel : ViewModel() {
     }
 
     /**
-     * Actualiza el ratio de zoom de la cámara.
+     * Registra los límites reales de zoom (mínimo y máximo) reportados por el hardware del sensor.
+     */
+    fun setZoomLimits(minRatio: Float, maxRatio: Float) {
+        _uiState.update { currentState ->
+            currentState.copy(
+                minZoomRatio = minRatio,
+                maxZoomRatio = maxRatio,
+                zoomRatio = currentState.zoomRatio.coerceIn(minRatio, maxRatio)
+            )
+        }
+    }
+
+    /**
+     * Actualiza el ratio de zoom de la cámara sin límites artificiales,
+     * adaptándose al rango real soportado por el sensor del dispositivo (ej. 10x o superior).
      */
     fun setZoomRatio(ratio: Float) {
         _uiState.update { currentState ->
-            currentState.copy(zoomRatio = ratio.coerceIn(1.0f, 5.0f))
+            val safeZoom = ratio.coerceIn(currentState.minZoomRatio, currentState.maxZoomRatio)
+            currentState.copy(zoomRatio = safeZoom)
         }
     }
 
@@ -279,5 +352,122 @@ class CameraViewModel : ViewModel() {
      */
     fun clearUserMessage() {
         _uiState.update { it.copy(userMessage = null) }
+    }
+
+    /**
+     * Abre o cierra la pantalla independiente de configuración general.
+     */
+    fun openSettings(isOpen: Boolean) {
+        if (_uiState.value.isRecordingVideo) return
+        _uiState.update { it.copy(isSettingsOpen = isOpen, isColorCalibrationOpen = false) }
+    }
+
+    /**
+     * Abre o cierra la pantalla independiente de calibración de color y contraste.
+     */
+    fun openColorCalibration(isOpen: Boolean) {
+        if (_uiState.value.isRecordingVideo) return
+        _uiState.update { it.copy(isColorCalibrationOpen = isOpen) }
+    }
+
+    /**
+     * Alterna el modo Antilavado Automático.
+     * Al activarse, aplica -0.7 EV de compensación (o el equivalente soportado)
+     * y el perfil de color Vívido para eliminar de golpe la neblina lechosa.
+     */
+    fun toggleAntiWashedMode() {
+        _uiState.update { currentState ->
+            val newState = !currentState.isAntiWashedModeEnabled
+            val newEv = if (newState) -0.7f else 0.0f
+            val newProfile = if (newState) ColorProfileOption.VIVID_ANTI_WASHED else ColorProfileOption.STANDARD
+            val step = if (currentState.exposureStep > 0f) currentState.exposureStep else 0.33333334f
+            val calculatedIndex = kotlin.math.round(newEv / step).toInt()
+                .coerceIn(currentState.minExposureIndex, currentState.maxExposureIndex)
+
+            val msg = if (newState) {
+                "Modo Antilavado activado (-0.7 EV • Vívido)"
+            } else {
+                "Modo estándar del sensor activado (0.0 EV)"
+            }
+
+            currentState.copy(
+                isAntiWashedModeEnabled = newState,
+                colorProfile = newProfile,
+                exposureCompensationEv = newEv,
+                exposureCompensationIndex = calculatedIndex,
+                userMessage = msg
+            )
+        }
+    }
+
+    /**
+     * Selecciona un perfil de color (Vívido Antilavado, Alto Contraste, Cálido Natural o Estándar).
+     */
+    fun setColorProfile(profile: ColorProfileOption) {
+        _uiState.update { currentState ->
+            val isAntiWashed = profile != ColorProfileOption.STANDARD
+            currentState.copy(
+                colorProfile = profile,
+                isAntiWashedModeEnabled = isAntiWashed,
+                userMessage = "Perfil aplicado: ${profile.label}"
+            )
+        }
+    }
+
+    /**
+     * Ajusta manualmente la compensación de exposición en unidades EV (ej. -0.7 EV, -0.3 EV, 0.0 EV).
+     */
+    fun setExposureEv(ev: Float) {
+        _uiState.update { currentState ->
+            val step = if (currentState.exposureStep > 0f) currentState.exposureStep else 0.33333334f
+            val targetIndex = kotlin.math.round(ev / step).toInt()
+                .coerceIn(currentState.minExposureIndex, currentState.maxExposureIndex)
+            val actualEv = targetIndex * step
+
+            currentState.copy(
+                exposureCompensationEv = actualEv,
+                exposureCompensationIndex = targetIndex,
+                isAntiWashedModeEnabled = actualEv < -0.1f || currentState.colorProfile != ColorProfileOption.STANDARD
+            )
+        }
+    }
+
+    /**
+     * Registra los límites y el paso de compensación de exposición reportados por el hardware de la cámara activa.
+     */
+    fun setExposureLimits(min: Int, max: Int, step: Float, isSupported: Boolean) {
+        _uiState.update { currentState ->
+            val validStep = if (step > 0f) step else 0.33333334f
+            val clampedIndex = currentState.exposureCompensationIndex.coerceIn(min, max)
+            val computedEv = clampedIndex * validStep
+
+            currentState.copy(
+                minExposureIndex = min,
+                maxExposureIndex = max,
+                exposureStep = validStep,
+                isExposureCompensationSupported = isSupported,
+                exposureCompensationIndex = clampedIndex,
+                exposureCompensationEv = computedEv
+            )
+        }
+    }
+
+    /**
+     * Restablece la calibración a los valores óptimos recomendados contra colores lavados.
+     */
+    fun resetColorCalibrationToDefaults() {
+        _uiState.update { currentState ->
+            val step = if (currentState.exposureStep > 0f) currentState.exposureStep else 0.33333334f
+            val recIndex = kotlin.math.round(-0.7f / step).toInt()
+                .coerceIn(currentState.minExposureIndex, currentState.maxExposureIndex)
+
+            currentState.copy(
+                isAntiWashedModeEnabled = true,
+                colorProfile = ColorProfileOption.VIVID_ANTI_WASHED,
+                exposureCompensationEv = recIndex * step,
+                exposureCompensationIndex = recIndex,
+                userMessage = "Restablecido a calibración antilavado recomendada"
+            )
+        }
     }
 }

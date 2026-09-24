@@ -44,8 +44,13 @@ Fase 1 (MVP Estable) ──> Fase 2 (Motor C++ Integrado) ──> Fase 3 (Grabac
   - Incorporación de `androidx.camera:camera-video:1.5.0` (`VideoCapture<Recorder>`).
   - Guardado en `Movies/Camara` con formato MP4 y manejo seguro de estados `IS_PENDING`.
 - [x] **Detección Dinámica de Capacidades del Sensor:**
-  - Inspección de resoluciones admitidas por el hardware (4K UHD, 1080p Full HD, 720p HD, 480p SD).
+  - Inspección de resoluciones admitidas por el hardware (4K UHD, 2K • QHD 2560×1440, 1080p Full HD, 720p HD, 480p SD).
   - Inspección de tasas de cuadros por segundo (FPS) reales mediante `Camera2CameraInfo` (30 FPS, 60 FPS).
+  - Inspección de soporte de Alto Rango Dinámico (HDR 10 bits HLG/HDR10) mediante `CameraInfo.querySupportedDynamicRanges`.
+- [x] **Soporte de Grabación de Vídeo en HDR (10-bit HLG):**
+  - Grabación con más de 1.000 millones de colores y alto contraste dinámico en sensores compatibles con codificación de 10 bits.
+  - Ocultación inteligente del interruptor si el sensor no lo soporta para no saturar al usuario.
+  - Indicador visual `• HDR` en el distintivo superior de vídeo cuando está activado.
 - [x] **Interfaz de Grabación Adaptativa:**
   - Selector de modo FOTO / VÍDEO.
   - Cronómetro de grabación animado con punto rojo pulsante (`REC 00:00`).
@@ -56,9 +61,36 @@ Fase 1 (MVP Estable) ──> Fase 2 (Motor C++ Integrado) ──> Fase 3 (Grabac
 
 ---
 
-### 🟡 Fase 4: Controles Manuales Pro y Ajustes Fotográficos *(En Curso)*
-- [ ] **Modo Pro / Manual:**
-  - Control de compensación de exposición (EV: -2 a +2).
+### 🟢 Fase 3.5: Megapíxeles Reales del Sensor y Detección de Estabilidad *(Completada)*
+- [x] **Detección de Megapíxeles Físicos del Sensor:**
+  - Cálculo dinámico de la resolución física total del sensor fotográfico (48 MP, 50 MP, 64 MP, 108 MP, 12 MP) mediante `CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP`.
+  - Conmutador directo en la barra superior (`[50MP OFF] / [50MP]`) adaptado a los MP reales del dispositivo.
+  - Configuración de `ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY` y `ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY` para capturas de resolución ultra alta.
+- [x] **Detección de Estabilidad de la Mano con Acelerómetro:**
+  - Clase `DeviceStabilityManager` que mide micro-movimientos para verificar si el usuario mantiene el teléfono quieto.
+  - Banner reactivo en el visor ("Mantén el dispositivo quieto…") para evitar fotos movidas o trepidadas.
+- [x] **Soporte de Vídeo 2K (QHD 2560×1440):**
+  - Incorporación de resolución 2K Quad HD junto a 4K UHD en la detección y selector de vídeo.
+- [x] **Zoom Completo sin Límites de Hardware:**
+  - Supresión de límites artificiales de zoom (5x) para permitir el alcance total que soporte el sensor (10x, 20x o más).
+  - Selector rápido de zoom en píldoras dinámicas adaptadas al rango de la cámara (1x, 2x, 5x, 10x y gran angular si existe).
+
+---
+
+### 🟡 Fase 4: Controles Manuales Pro, Ajustes y Calibración *(En Curso)*
+- [x] **Menú Independiente de Configuración (Acceso por Tuerca):**
+  - Pantalla modular `SettingsScreen` accesible mediante icono de engranaje superior sin saturar el visor.
+  - Resumen completo de capacidades de hardware (Megapíxeles reales, resoluciones de vídeo, HDR 10-bit y rangos EV del sensor).
+  - Estado del motor nativo C++20 con `NativeCameraEngine.getVersion()`.
+- [x] **Sistema de Calibración de Color y Contraste (Anti-Colores Lavados/Pasteles):**
+  - Pantalla dedicada `ColorCalibrationScreen` para corregir la sobreexposición y aplanamiento de sombras común de fábrica.
+  - Interruptor maestro de **Modo Antilavado Automático** (calibración recomendada -0.7 EV con perfil Vívido).
+  - Selector de perfiles de color: *Vívido Antilavado*, *Alto Contraste Cinematográfico*, *Cálido Natural* y *Estándar*.
+  - Indicador visual dinámico en el visor con distintivo activo (`Antilavado: -0.7 EV • Vívido`).
+- [x] **Control de Compensación de Exposición por Hardware (EV):**
+  - Presets rápidos (-1.0 EV, -0.7 EV, -0.3 EV, 0.0 EV, +0.5 EV) y slider continuo.
+  - Sincronización directa con el ISP del sensor vía `CameraControl.setExposureCompensationIndex()`.
+- [ ] **Modo Pro / Manual Adicional:**
   - Bloqueo de enfoque y exposición (AE/AF Lock).
   - Ajuste manual de Balance de Blancos (Luz día, Nublado, Incandescente, Fluorescente).
 - [ ] **Temporizador de Disparo:**

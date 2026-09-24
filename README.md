@@ -13,13 +13,18 @@ Además, cuenta con una base nativa en **C++20** compilada mediante **CMake** in
 ### Características Principales
 
 * **Visor Inmersivo en Vivo:** Integración nativa con CameraX `Preview`, `ImageCapture` y `VideoCapture<Recorder>` de latencia reducida.
+* **Modo Megapíxeles Reales del Teléfono (Full Sensor MP):** Detección dinámica de los megapíxeles máximos reales soportados físicamente por el sensor (48 MP, 50 MP, 64 MP, 108 MP, 12 MP, etc.) mediante `CameraCharacteristics`. Al activarlo, configura `ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY` y la resolución nativa máxima sin recortes.
+* **Detección de Estabilidad y Aviso de Sujeción:** Monitorización en tiempo real mediante el acelerómetro del dispositivo (`DeviceStabilityManager`) con banner visual ("Mantén el dispositivo quieto…") para garantizar capturas nítidas sin trepidación durante disparos de alta resolución.
 * **Grabación de Vídeo de Alto Rendimiento:** Soporte completo para captura de vídeo con guardado en `Movies/Camara` en formato MP4 vía `MediaStore`.
-* **Detección Automática de Hardware (Resolución y FPS):** Inspección dinámica del sensor físico del teléfono para ofrecer las resoluciones reales soportadas (4K UHD, 1080p Full HD, 720p HD, 480p SD) y rangos de cuadros por segundo (30 FPS, 60 FPS).
-* **Ajustes de Vídeo Modulares:** Diálogo independiente para calibrar resolución, FPS y activación de micrófono sin saturar la pantalla principal.
+* **Grabación de Vídeo HDR en 10 bits (HLG):** Soporte para captura con Alto Rango Dinámico en sensores compatibles mediante `DynamicRange.HLG_10_BIT`. Detección automática por hardware que oculta la opción si el sensor no lo admite para no saturar al usuario, y distintivo visual `• HDR` en el visor.
+* **Detección Automática de Hardware (Resolución y FPS):** Inspección dinámica del sensor físico del teléfono para ofrecer las resoluciones reales soportadas (4K UHD, 2K • QHD 2560×1440, 1080p Full HD, 720p HD, 480p SD) y rangos de cuadros por segundo (30 FPS, 60 FPS).
+* **Ajustes de Vídeo Modulares:** Diálogo independiente para calibrar resolución (4K, 2K QHD, FHD, HD), FPS, rango dinámico (HDR 10-bit HLG si está disponible) y activación de micrófono sin saturar la pantalla principal.
+* **Menú Independiente de Configuración (Acceso por Tuerca):** Pantalla dedicada de configuración (`SettingsScreen`) accesible directamente mediante el icono de engranaje superior, con resumen de hardware del sensor, calibración y estado del motor nativo C++20.
+* **Calibración de Color y Contraste (Anti-Colores Lavados/Pasteles):** Pantalla especializada (`ColorCalibrationScreen`) para solucionar la sobreexposición y aplanamiento de sombras común en sensores OEM. Permite aplicar **Modo Antilavado Automático (-0.7 EV)**, compensación manual de exposición EV continua y perfiles de color (*Vívido Antilavado*, *Alto Contraste*, *Cálido Natural*, *Estándar*), reflejados de inmediato en el visor con distintivo visual en vivo.
 * **Cronómetro y Alerta de Grabación:** Indicador visual superior con cronómetro animado (`REC 00:00`) y punto rojo pulsante.
 * **Motor Nativo en C++20:** Integración oficial de **CMake** y **Android NDK** con soporte multiplataforma para arquitecturas de 64 bits (`arm64-v8a`, `x86_64`) y 32 bits (`armeabi-v7a`).
 * **Enfoque Táctil (Tap-to-Focus):** Toque interactivo en cualquier área de la pantalla con anillo visual animado para enfoque y medición de luz.
-* **Zoom Táctil (Pinch-to-Zoom):** Gesto de pellizco fluido con indicador dinámico en pantalla.
+* **Zoom Sin Límites Artificiales (Hasta el Máximo del Sensor):** Desbloqueo del rango total de aumento que soporte el dispositivo (10x, 20x, 30x o más) sin límites arbitrarios fijados por software, complementado con un selector rápido dinámico (1x, 2x, 5x, 10x) y gesto fluido de pellizco (Pinch-to-Zoom).
 * **Controles Rápidos de Flash:** Alternancia instantánea entre Automático (`Auto`), Encendido (`On`) y Apagado (`Off`).
 * **Regla de Tercios:** Cuadrícula de composición 3x3 conmutable tanto para foto como para vídeo.
 * **Alternancia de Lentes:** Cambio entre cámara trasera y frontal con animación de giro suave.
@@ -65,6 +70,8 @@ app/src/main/
 │   │   ├── VideoSettingsSheet.kt    # Diálogo de ajustes de resolución y FPS del sensor
 │   │   ├── CameraPreviewView.kt     # Visor nativo reactivo con CameraX (Preview, ImageCapture, VideoCapture)
 │   │   ├── CameraScreen.kt          # Pantalla principal con controles superior, inferior y selector de modo
+│   │   ├── SettingsScreen.kt        # Menú independiente de configuración general (acceso por tuerca)
+│   │   ├── ColorCalibrationScreen.kt# Menú de calibración de color, antilavado y compensación EV
 │   │   ├── PhotoPreviewScreen.kt    # Visor de capturas a pantalla completa, compartir y eliminar
 │   │   ├── CameraPermissionScreen.kt# Pantalla amigable para solicitud de permisos
 │   │   └── nativeengine/

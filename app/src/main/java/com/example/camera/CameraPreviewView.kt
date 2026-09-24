@@ -3,9 +3,12 @@ package com.example.camera
 import android.view.ViewGroup
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.DynamicRange
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
@@ -56,6 +59,9 @@ import kotlin.math.roundToInt
  * @param onImageCaptureReady Callback que expone la instancia activa de [ImageCapture].
  * @param onVideoCaptureReady Callback que expone la instancia activa de [VideoCapture].
  * @param onCapabilitiesDetected Callback con las capacidades de vídeo detectadas físicamente en el sensor.
+ * @param onPhotoCapabilitiesDetected Callback con los megapíxeles y dimensiones físicas del sensor.
+ * @param zoomRatio Nivel actual de zoom establecido por el usuario o interfaz.
+ * @param onZoomLimitsDetected Notifica el rango mínimo y máximo de zoom real del hardware de la cámara activa.
  * @param onZoomChanged Notifica cambios de zoom cuando el usuario pellizca la pantalla.
  */
 @Composable
@@ -63,11 +69,18 @@ fun CameraPreviewView(
     lensFacing: LensFacing,
     captureMode: CaptureMode,
     selectedQuality: VideoQualityOption,
+    isMaxMegapixelsEnabled: Boolean,
+    isHdrVideoEnabled: Boolean,
     isGridEnabled: Boolean,
+    zoomRatio: Float,
+    targetExposureIndex: Int = 0,
     onImageCaptureReady: (ImageCapture) -> Unit,
     onVideoCaptureReady: (VideoCapture<Recorder>) -> Unit,
     onCapabilitiesDetected: (VideoCapabilitiesInfo) -> Unit,
+    onPhotoCapabilitiesDetected: (PhotoResolutionInfo) -> Unit,
+    onZoomLimitsDetected: (min: Float, max: Float) -> Unit,
     onZoomChanged: (Float) -> Unit,
+    onExposureLimitsDetected: ((min: Int, max: Int, step: Float, isSupported: Boolean) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -84,8 +97,8 @@ fun CameraPreviewView(
     // Zoom interactivo
     var currentZoomRatio by remember { mutableFloatStateOf(1.0f) }
 
-    // Reacciona al cambio de orientación de cámara, modo de captura, resolución o ciclo de vida
-    LaunchedEffect(lensFacing, captureMode, selectedQuality, lifecycleOwner) {
+    // Reacciona al cambio de orientación de cámara, modo de captura, resolución, HDR o ciclo de vida
+    LaunchedEffect(lensFacing, captureMode, selectedQuality, isMaxMegapixelsEnabled, isHdrVideoEnabled, lifecycleOwner) {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
         val executor = ContextCompat.getMainExecutor(context)
 
@@ -107,9 +120,23 @@ fun CameraPreviewView(
                 cameraProvider.unbindAll()
 
                 if (captureMode == CaptureMode.PHOTO) {
-                    val imageCapture = ImageCapture.Builder()
-                        .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
-                        .build()
+                    val imageCaptureBuilder = ImageCapture.Builder()
+
+                    if (isMaxMegapixelsEnabled) {
+                        // Modo Máxima Resolución Nativa: Máxima calidad de ISP y máxima resolución disponible
+                        val resolutionSelector = ResolutionSelector.Builder()
+                            .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+                            .build()
+                        imageCaptureBuilder
+                            .setResolutionSelector(resolutionSelector)
+                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY)
+                    } else {
+                        // Modo Estándar optimizado y rápido
+                        imageCaptureBuilder
+                            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+                    }
+
+                    val imageCapture = imageCaptureBuilder.build()
 
                     val boundCamera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
@@ -120,15 +147,37 @@ fun CameraPreviewView(
                     cameraInstance = boundCamera
                     onImageCaptureReady(imageCapture)
 
+                    // Notifica los límites de zoom reales del hardware sin límites artificiales
+                    boundCamera.cameraInfo.zoomState.value?.let { state ->
+                        onZoomLimitsDetected(state.minZoomRatio, state.maxZoomRatio)
+                    }
+                    boundCamera.cameraInfo.zoomState.observe(lifecycleOwner) { state ->
+                        if (state != null) {
+                            onZoomLimitsDetected(state.minZoomRatio, state.maxZoomRatio)
+                        }
+                    }
+
+                    // Detecta capacidades fotográficas reales del sensor físico
+                    val photoCaps = CameraCaptureManager.detectPhotoCapabilities(boundCamera.cameraInfo)
+                    onPhotoCapabilitiesDetected(photoCaps)
+
                     // Detecta capacidades de vídeo del sensor para tenerlas listas al cambiar de modo
                     val capabilities = CameraVideoManager.detectVideoCapabilities(boundCamera.cameraInfo)
                     onCapabilitiesDetected(capabilities)
                 } else {
-                    // Modo Vídeo: Configura el Recorder con la calidad seleccionada
+                    // Modo Vídeo: Configura el Recorder con la calidad seleccionada y rango dinámico (SDR u HDR 10-bit HLG)
+                    val targetDynamicRange = if (isHdrVideoEnabled) {
+                        DynamicRange.HLG_10_BIT
+                    } else {
+                        DynamicRange.SDR
+                    }
+
                     val recorder = Recorder.Builder()
                         .setQualitySelector(QualitySelector.from(selectedQuality.quality))
                         .build()
-                    val videoCapture = VideoCapture.withOutput(recorder)
+                    val videoCapture = VideoCapture.Builder(recorder)
+                        .setDynamicRange(targetDynamicRange)
+                        .build()
 
                     val boundCamera = cameraProvider.bindToLifecycle(
                         lifecycleOwner,
@@ -139,8 +188,37 @@ fun CameraPreviewView(
                     cameraInstance = boundCamera
                     onVideoCaptureReady(videoCapture)
 
+                    // Notifica los límites de zoom reales del hardware sin límites artificiales
+                    boundCamera.cameraInfo.zoomState.value?.let { state ->
+                        onZoomLimitsDetected(state.minZoomRatio, state.maxZoomRatio)
+                    }
+                    boundCamera.cameraInfo.zoomState.observe(lifecycleOwner) { state ->
+                        if (state != null) {
+                            onZoomLimitsDetected(state.minZoomRatio, state.maxZoomRatio)
+                        }
+                    }
+
                     val capabilities = CameraVideoManager.detectVideoCapabilities(boundCamera.cameraInfo)
                     onCapabilitiesDetected(capabilities)
+                }
+
+                // Detecta soporte de compensación de exposición (EV) y límites del sensor
+                cameraInstance?.let { boundCamera ->
+                    val expState = boundCamera.cameraInfo.exposureState
+                    onExposureLimitsDetected?.invoke(
+                        expState.exposureCompensationRange.lower,
+                        expState.exposureCompensationRange.upper,
+                        expState.exposureCompensationStep.toFloat(),
+                        expState.isExposureCompensationSupported
+                    )
+
+                    if (expState.isExposureCompensationSupported) {
+                        val targetIndex = targetExposureIndex.coerceIn(
+                            expState.exposureCompensationRange.lower,
+                            expState.exposureCompensationRange.upper
+                        )
+                        boundCamera.cameraControl.setExposureCompensationIndex(targetIndex)
+                    }
                 }
             } catch (e: Exception) {
                 // Manejo seguro si la combinación de casos de uso o cámara no está disponible
@@ -148,16 +226,44 @@ fun CameraPreviewView(
         }, executor)
     }
 
+    // Sincroniza la compensación de exposición EV cuando el usuario la modifica desde Ajustes o Calibración
+    LaunchedEffect(targetExposureIndex, cameraInstance) {
+        cameraInstance?.let { cam ->
+            val expState = cam.cameraInfo.exposureState
+            if (expState.isExposureCompensationSupported) {
+                val clamped = targetExposureIndex.coerceIn(
+                    expState.exposureCompensationRange.lower,
+                    expState.exposureCompensationRange.upper
+                )
+                cam.cameraControl.setExposureCompensationIndex(clamped)
+            }
+        }
+    }
+
+    // Sincroniza el nivel de zoom solicitado externamente (ej. botones rápidos 1x, 2x, 5x, 10x)
+    LaunchedEffect(zoomRatio) {
+        cameraInstance?.let { cam ->
+            val zoomState = cam.cameraInfo.zoomState.value
+            val minRatio = zoomState?.minZoomRatio ?: 1f
+            val maxRatio = zoomState?.maxZoomRatio ?: 10f
+            val safeZoom = zoomRatio.coerceIn(minRatio, maxRatio)
+            if (kotlin.math.abs(safeZoom - currentZoomRatio) > 0.02f) {
+                currentZoomRatio = safeZoom
+                cam.cameraControl.setZoomRatio(safeZoom)
+            }
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .pointerInput(Unit) {
-                // Gesto de pellizco para zoom táctil (Pinch to Zoom)
+                // Gesto de pellizco para zoom táctil continuo hasta el máximo del sensor (sin topes artificiales)
                 detectTransformGestures { _, _, zoom, _ ->
                     cameraInstance?.let { cam ->
                         val zoomState = cam.cameraInfo.zoomState.value
                         val minRatio = zoomState?.minZoomRatio ?: 1f
-                        val maxRatio = zoomState?.maxZoomRatio ?: 5f
+                        val maxRatio = zoomState?.maxZoomRatio ?: 10f
                         val newRatio = (currentZoomRatio * zoom).coerceIn(minRatio, maxRatio)
                         currentZoomRatio = newRatio
                         cam.cameraControl.setZoomRatio(newRatio)

@@ -11,6 +11,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.core.CameraInfo
+import androidx.camera.core.DynamicRange
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.MediaStoreOutputOptions
 import androidx.camera.video.QualitySelector
@@ -48,10 +49,25 @@ object CameraVideoManager {
         // 1. Detección de calidades y resoluciones mediante QualitySelector
         val supportedQualities = try {
             val rawQualities = QualitySelector.getSupportedQualities(cameraInfo)
-            val mapped = rawQualities.mapNotNull { VideoQualityOption.fromQuality(it) }
+            val mapped = rawQualities.mapNotNull { VideoQualityOption.fromQuality(it) }.toMutableList()
+
+            // Consultar si el sensor físico soporta resolución 2K/QHD o 4K mediante CameraCharacteristics
+            val camera2Info = Camera2CameraInfo.from(cameraInfo)
+            val streamMap = camera2Info.getCameraCharacteristic(
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP
+            )
+            val outputSizes = streamMap?.getOutputSizes(android.media.MediaRecorder::class.java)
+            val has2KOrHigher = outputSizes?.any { it.width >= 2560 || it.height >= 1440 } == true
+
+            // Si el hardware soporta 2K (2560x1440) o superior y no está en la lista, incluirlo
+            if (has2KOrHigher && !mapped.contains(VideoQualityOption.QHD)) {
+                val insertIndex = if (mapped.contains(VideoQualityOption.UHD)) 1 else 0
+                mapped.add(insertIndex, VideoQualityOption.QHD)
+            }
+
             if (mapped.isNotEmpty()) mapped else listOf(VideoQualityOption.FHD, VideoQualityOption.HD)
         } catch (_: Exception) {
-            listOf(VideoQualityOption.FHD, VideoQualityOption.HD)
+            listOf(VideoQualityOption.QHD, VideoQualityOption.FHD, VideoQualityOption.HD)
         }
 
         // 2. Detección de FPS disponibles en el hardware mediante Camera2CameraInfo
@@ -72,9 +88,18 @@ object CameraVideoManager {
             listOf(30)
         }
 
+        // 3. Detección de soporte de Alto Rango Dinámico (HDR de 10 bits) en el sensor
+        val isHdrSupported = try {
+            val supportedRanges = cameraInfo.querySupportedDynamicRanges(setOf(DynamicRange.HLG_10_BIT, DynamicRange.HDR10_10_BIT))
+            supportedRanges.any { it == DynamicRange.HLG_10_BIT || it == DynamicRange.HDR10_10_BIT }
+        } catch (_: Exception) {
+            false
+        }
+
         return VideoCapabilitiesInfo(
             supportedQualities = supportedQualities,
-            supportedFps = supportedFps
+            supportedFps = supportedFps,
+            isHdrSupported = isHdrSupported
         )
     }
 
