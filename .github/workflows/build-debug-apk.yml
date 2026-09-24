@@ -1,0 +1,76 @@
+name: Compilar APK Debug
+
+on:
+  workflow_dispatch:
+    inputs:
+      use_cache:
+        description: 'Activar caché de dependencias (Gradle y NDK)'
+        required: false
+        type: boolean
+        default: true
+      force_fresh_keystore:
+        description: 'Obligar a generar firma debug.keystore desde cero'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-debug:
+    name: Compilar APK Debug con C++20 NDK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar código fuente del repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Configurar Android SDK y NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar componentes de C++ (CMake 3.22.1 y Android NDK)
+        run: |
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "cmake;3.22.1" "ndk;28.0.12433566"
+
+      - name: Restaurar caché de Gradle (Opcional)
+        if: ${{ inputs.use_cache }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Otorgar permisos de ejecución a scripts
+        run: |
+          chmod +x gradlew || true
+          chmod +x scripts/generate-debug-keystore.sh
+
+      - name: Generar firma de depuración desde cero (debug.keystore)
+        run: |
+          bash scripts/generate-debug-keystore.sh debug.keystore
+
+      - name: Compilar APK Debug (incluyendo librerías C++20 .so)
+        run: |
+          if [ -f "./gradlew" ]; then
+            ./gradlew :app:assembleDebug --stacktrace
+          else
+            gradle :app:assembleDebug --stacktrace
+          fi
+
+      - name: Subir APK Debug como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

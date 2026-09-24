@@ -1,0 +1,6 @@
+{
+  "name": "Cámara",
+  "description": "Aplicación de cámara moderna para tomar fotos con vista previa, controles de captura y galería rápida.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

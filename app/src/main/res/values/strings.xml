@@ -1,0 +1,28 @@
+<resources>
+    <string name="app_name">Cámara</string>
+    <string name="camera_permission_title">Acceso a la Cámara</string>
+    <string name="camera_permission_description">Para tomar fotos, la aplicación necesita permiso para acceder a la cámara de tu dispositivo.</string>
+    <string name="camera_permission_button">Permitir cámara</string>
+    <string name="camera_permission_denied_help">El permiso fue denegado. Por favor concédelo en los ajustes del dispositivo para continuar.</string>
+    <string name="shutter_button_desc">Tomar foto</string>
+    <string name="switch_camera_desc">Cambiar cámara</string>
+    <string name="flash_mode_desc">Control de flash</string>
+    <string name="gallery_thumbnail_desc">Ver última foto tomada</string>
+    <string name="photo_saved_toast">Foto guardada con éxito</string>
+    <string name="photo_capture_failed">Error al capturar la foto</string>
+    <string name="close_preview_desc">Cerrar vista previa</string>
+    <string name="delete_photo_desc">Eliminar foto</string>
+    <string name="share_photo_desc">Compartir foto</string>
+    <string name="mode_photo">FOTO</string>
+    <string name="mode_video">VÍDEO</string>
+    <string name="video_settings_title">Ajustes de Grabación</string>
+    <string name="video_resolution_label">Resolución de vídeo</string>
+    <string name="video_fps_label">Cuadros por segundo (FPS)</string>
+    <string name="video_audio_label">Grabar con audio</string>
+    <string name="video_start_recording_desc">Iniciar grabación de vídeo</string>
+    <string name="video_stop_recording_desc">Detener grabación de vídeo</string>
+    <string name="video_saved_toast">Vídeo guardado con éxito</string>
+    <string name="video_capture_failed">Error al grabar el vídeo</string>
+    <string name="audio_permission_title">Acceso al Micrófono</string>
+    <string name="audio_permission_desc">Para grabar vídeos con sonido, permite el acceso al micrófono.</string>
+</resources>

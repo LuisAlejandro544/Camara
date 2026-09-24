@@ -1,11 +1,123 @@
-<div align="center">
+# Cámara — Aplicación de Fotografía y Grabación de Vídeo para Android
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Aplicación nativa de cámara para Android diseñada con **Jetpack Compose**, **CameraX (Fotos y Vídeo)** y un motor nativo en **C++20 con CMake**, optimizada para un rendimiento fluido, respuesta táctil inmediata y distribución directa en tiendas de APKs de terceros como **Uptodown**.
 
-  <h1>Built with AI Studio</h2>
+---
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+## 📸 Descripción del Proyecto
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+**Cámara** ofrece una experiencia fotográfica y audiovisual inmersiva y moderna. Diseñada con una interfaz oscura tipo visor profesional, la aplicación prescinde de configuraciones innecesarias o dependencias de variables de entorno (`.env`), ofreciendo una compilación limpia e independiente lista para ejecutarse en cualquier dispositivo Android moderno (Android 8.0 Oreo hasta Android 16).
 
-</div>
+Además, cuenta con una base nativa en **C++20** compilada mediante **CMake** integrada en el APK final, preparando el terreno para el procesamiento de imágenes y computación de alto rendimiento a nivel de hardware.
+
+### Características Principales
+
+* **Visor Inmersivo en Vivo:** Integración nativa con CameraX `Preview`, `ImageCapture` y `VideoCapture<Recorder>` de latencia reducida.
+* **Grabación de Vídeo de Alto Rendimiento:** Soporte completo para captura de vídeo con guardado en `Movies/Camara` en formato MP4 vía `MediaStore`.
+* **Detección Automática de Hardware (Resolución y FPS):** Inspección dinámica del sensor físico del teléfono para ofrecer las resoluciones reales soportadas (4K UHD, 1080p Full HD, 720p HD, 480p SD) y rangos de cuadros por segundo (30 FPS, 60 FPS).
+* **Ajustes de Vídeo Modulares:** Diálogo independiente para calibrar resolución, FPS y activación de micrófono sin saturar la pantalla principal.
+* **Cronómetro y Alerta de Grabación:** Indicador visual superior con cronómetro animado (`REC 00:00`) y punto rojo pulsante.
+* **Motor Nativo en C++20:** Integración oficial de **CMake** y **Android NDK** con soporte multiplataforma para arquitecturas de 64 bits (`arm64-v8a`, `x86_64`) y 32 bits (`armeabi-v7a`).
+* **Enfoque Táctil (Tap-to-Focus):** Toque interactivo en cualquier área de la pantalla con anillo visual animado para enfoque y medición de luz.
+* **Zoom Táctil (Pinch-to-Zoom):** Gesto de pellizco fluido con indicador dinámico en pantalla.
+* **Controles Rápidos de Flash:** Alternancia instantánea entre Automático (`Auto`), Encendido (`On`) y Apagado (`Off`).
+* **Regla de Tercios:** Cuadrícula de composición 3x3 conmutable tanto para foto como para vídeo.
+* **Alternancia de Lentes:** Cambio entre cámara trasera y frontal con animación de giro suave.
+* **Obturador Adaptativo Fiel:** Disparador dinámico con respuesta elástica (círculo blanco para foto, círculo rojo para vídeo y cuadrado rojo pulsante para detener grabación).
+* **Visor y Gestión de Multimedia:** Miniatura con acceso directo a la última captura, vista previa a pantalla completa con zoom, opción para compartir y eliminación segura.
+* **Tipografía Fija Antideformación:** Escala de fuente bloqueada (`fontScale = 1.0f`) para garantizar que la configuración de accesibilidad del teléfono no descuadre los controles del visor.
+
+---
+
+## ⚙️ Especificaciones Técnicas
+
+| Parámetro | Detalle |
+| :--- | :--- |
+| **Lenguajes** | Kotlin 2.2.x y C++ (Estándar C++20) |
+| **Framework de Interfaz** | Jetpack Compose (Material Design 3) |
+| **Motor de Cámara** | AndroidX CameraX 1.5.0 (`camera2`, `core`, `lifecycle`, `view`, `video`) |
+| **Sistema de Compilación Nativo** | CMake 3.22.1 + Android NDK |
+| **Arquitecturas Nativas (ABIs)** | `arm64-v8a` (64 bits), `armeabi-v7a` (32 bits), `x86_64` |
+| **Carga de Imágenes** | Coil 2.7.0 |
+| **Versión Mínima de Android** | **Android 8.0 Oreo (API 26)** |
+| **Versión Objetivo (Target)** | **Android 16 (API 36)** |
+| **Gestión de Hilos** | Kotlin Coroutines (`Dispatchers.IO` para I/O) y Flow |
+| **Compilación sin .env** | Independiente de archivos de variables de entorno |
+| **CI/CD Integrado** | GitHub Action con compilación manual, caché opcional y generación de firma desde cero |
+| **Distribución** | APK optimizado para Uptodown y tiendas de terceros |
+
+---
+
+## 📂 Estructura del Código Fuente
+
+```text
+app/src/main/
+├── cpp/
+│   ├── CMakeLists.txt               # Configuración de compilación CMake (C++20, NDK)
+│   └── native-camera-engine.cpp     # Motor nativo de procesamiento e interfaz JNI
+├── java/com/example/
+│   ├── MainActivity.kt              # Punto de entrada, permisos (Cámara/Audio) y navegación
+│   ├── camera/
+│   │   ├── CameraState.kt           # Modelos de datos inmutables, resoluciones y estados
+│   │   ├── CameraViewModel.kt       # Lógica de negocio y corrutinas en segundo plano
+│   │   ├── CameraCaptureManager.kt  # Canal de captura de fotos en MediaStore (Pictures)
+│   │   ├── CameraVideoManager.kt    # Gestor de grabación y detección de hardware (Movies)
+│   │   ├── VideoSettingsSheet.kt    # Diálogo de ajustes de resolución y FPS del sensor
+│   │   ├── CameraPreviewView.kt     # Visor nativo reactivo con CameraX (Preview, ImageCapture, VideoCapture)
+│   │   ├── CameraScreen.kt          # Pantalla principal con controles superior, inferior y selector de modo
+│   │   ├── PhotoPreviewScreen.kt    # Visor de capturas a pantalla completa, compartir y eliminar
+│   │   ├── CameraPermissionScreen.kt# Pantalla amigable para solicitud de permisos
+│   │   └── nativeengine/
+│   │       └── NativeCameraEngine.kt# Puente JNI que enlaza la librería C++ (.so)
+│   └── ui/theme/
+│       ├── Color.kt                 # Paleta oscura de alto contraste para visores de cámara
+│       ├── Theme.kt                 # Tema Material 3 con densidad de fuente fija (fontScale = 1.0f)
+│       └── Type.kt                  # Jerarquía tipográfica
+scripts/
+└── generate-debug-keystore.sh       # Generador de almacén de claves (debug.keystore) desde cero
+.github/workflows/
+└── build-debug-apk.yml              # GitHub Action para compilar APK Debug manualmente
+```
+
+---
+
+## 🚀 Compilación y Ejecución
+
+La aplicación no requiere archivos `.env`, tokens ni claves de API para compilar o ejecutarse.
+
+### Requisitos Previos
+* Android SDK con plataforma API 36 y NDK instalados.
+* CMake 3.22.1+.
+* JDK 17 o 21 configurado.
+* Gradle con soporte para Kotlin DSL.
+
+### Comandos de Compilación
+```bash
+# Generar o regenerar almacén de claves debug desde cero
+bash scripts/generate-debug-keystore.sh
+
+# Compilar el APK en modo depuración (incluyendo librerías .so nativas)
+gradle :app:assembleDebug
+
+# Ejecutar las pruebas unitarias y de Robolectric
+gradle :app:testDebugUnitTest
+```
+
+El APK resultante se genera en:
+`app/build/outputs/apk/debug/app-debug.apk`
+
+---
+
+## 🤖 GitHub Action (Compilación Automatizada en la Nube)
+
+El proyecto incluye un flujo de trabajo de **GitHub Actions** en `.github/workflows/build-debug-apk.yml`:
+* **Activación Manual (`workflow_dispatch`):** Se ejecuta solo cuando tú lo solicitas desde la pestaña *Actions* de GitHub.
+* **Descarga de Dependencias C++:** Descarga e instala automáticamente CMake 3.22.1 y el Android NDK.
+* **Caché Opcional:** Permite activar o desactivar la caché de Gradle mediante un selector antes de lanzar el build.
+* **Generación de Firma desde Cero:** Ejecuta `scripts/generate-debug-keystore.sh` para forzar una firma debug limpia y nueva sin depender de archivos previos.
+* **Artefacto Descargable:** Entrega el archivo `app-debug.apk` listo para descargar e instalar en el teléfono.
+
+---
+
+## 📜 Licencia
+Proyecto libre de dependencias con licencias restrictivas (GPL/copyleft), apto para distribución binaria independiente.
