@@ -5,10 +5,12 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraMetadata
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.core.CameraInfo
 import androidx.camera.core.DynamicRange
@@ -36,6 +38,7 @@ import java.util.Locale
  */
 object CameraVideoManager {
 
+    private const val TAG = "CameraVideoManager"
     private const val FILENAME_FORMAT = "yyyyMMdd_HHmmss_SSS"
 
     /**
@@ -88,11 +91,46 @@ object CameraVideoManager {
             listOf(30)
         }
 
-        // 3. Detección de soporte de Alto Rango Dinámico (HDR de 10 bits) en el sensor
+        // 3. Detección de soporte de Alto Rango Dinámico (HDR) en el sensor y Camera2
         val isHdrSupported = try {
-            val supportedRanges = cameraInfo.querySupportedDynamicRanges(setOf(DynamicRange.HLG_10_BIT, DynamicRange.HDR10_10_BIT))
-            supportedRanges.any { it == DynamicRange.HLG_10_BIT || it == DynamicRange.HDR10_10_BIT }
-        } catch (_: Exception) {
+            val camera2Info = Camera2CameraInfo.from(cameraInfo)
+
+            // A. Detección en CameraX DynamicRanges (10-bit HLG, HDR10, etc.)
+            val dynamicRanges = try {
+                cameraInfo.querySupportedDynamicRanges(setOf(DynamicRange.HLG_10_BIT, DynamicRange.HDR10_10_BIT))
+            } catch (_: Exception) {
+                emptySet()
+            }
+            val hasCameraX10Bit = dynamicRanges.any { it == DynamicRange.HLG_10_BIT || it == DynamicRange.HDR10_10_BIT }
+
+            // B. Detección mediante modo de escena HDR de Camera2 (estándar en MediaTek/Snapdragon)
+            val sceneModes = camera2Info.getCameraCharacteristic(
+                CameraCharacteristics.CONTROL_AVAILABLE_SCENE_MODES
+            )
+            val hasSceneModeHdr = sceneModes?.contains(CameraMetadata.CONTROL_SCENE_MODE_HDR) == true
+
+            // C. Detección en capacidades de 10 bits en Android 13+ (API 33)
+            val hasTenBitCapability = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val capabilities = camera2Info.getCameraCharacteristic(
+                    CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES
+                )
+                capabilities?.contains(CameraMetadata.REQUEST_AVAILABLE_CAPABILITIES_DYNAMIC_RANGE_TEN_BIT) == true
+            } else {
+                false
+            }
+
+            // D. Detección de capacidades del grabador (Recorder) de CameraX
+            val recorderCaps = try {
+                Recorder.getVideoCapabilities(cameraInfo).supportedDynamicRanges
+            } catch (_: Exception) {
+                emptySet()
+            }
+            val hasRecorderHdr = recorderCaps.any { it != DynamicRange.SDR }
+
+            // Si cualquiera de los mecanismos expone HDR, se habilita con soporte real
+            hasCameraX10Bit || hasSceneModeHdr || hasTenBitCapability || hasRecorderHdr
+        } catch (e: Exception) {
+            Log.w(TAG, "Excepción detectando soporte HDR: ${e.message}")
             false
         }
 

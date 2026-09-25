@@ -76,6 +76,7 @@ fun SettingsScreen(
     onSelectTimer: (TimerOption) -> Unit = {},
     onSelectGraphicsBackend: (GraphicsFilterBackend) -> Unit = {},
     onSetBeautyIntensity: (Float) -> Unit = {},
+    onToggleWatermark: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -409,6 +410,55 @@ fun SettingsScreen(
                                 uncheckedTrackColor = Color.DarkGray
                             ),
                             modifier = Modifier.testTag("settings_grid_switch")
+                        )
+                    }
+
+                    HorizontalDivider(
+                        color = Color.White.copy(alpha = 0.08f),
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+
+                    // Switch de Marca de Agua Apex Camera
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Camera,
+                                contentDescription = null,
+                                tint = CameraYellowAccent,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.settings_watermark_title),
+                                    color = CameraTextPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_watermark_desc),
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = uiState.isWatermarkEnabled,
+                            onCheckedChange = { onToggleWatermark() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CameraYellowAccent,
+                                checkedTrackColor = CameraYellowAccent.copy(alpha = 0.3f),
+                                uncheckedThumbColor = Color.LightGray,
+                                uncheckedTrackColor = Color.DarkGray
+                            ),
+                            modifier = Modifier.testTag("settings_watermark_switch")
                         )
                     }
 

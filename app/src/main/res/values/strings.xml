@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Cámara</string>
+    <string name="app_name">Apex Camera</string>
     <string name="camera_permission_title">Acceso a la Cámara</string>
     <string name="camera_permission_description">Para tomar fotos, la aplicación necesita permiso para acceder a la cámara de tu dispositivo.</string>
     <string name="camera_permission_button">Permitir cámara</string>
@@ -79,4 +79,7 @@
     <string name="timer_10s">10 segundos</string>
     <string name="timer_cancel">Cancelar temporizador</string>
     <string name="timer_countdown_label">Disparando en</string>
+    <string name="settings_watermark_title">Marca de agua Apex Camera</string>
+    <string name="settings_watermark_desc">Estampa sutilmente 'SHOT ON APEX CAMERA' con perfil de color en las fotos</string>
+    <string name="watermark_shot_on">SHOT ON APEX CAMERA</string>
 </resources>

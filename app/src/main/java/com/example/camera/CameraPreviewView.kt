@@ -1,6 +1,10 @@
 package com.example.camera
 
+import android.hardware.camera2.CameraMetadata
+import android.hardware.camera2.CaptureRequest
 import android.view.ViewGroup
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.core.AspectRatio
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -80,6 +84,7 @@ fun CameraPreviewView(
     captureMode: CaptureMode,
     selectedQuality: VideoQualityOption,
     aspectRatio: AspectRatioOption = AspectRatioOption.RATIO_4_3,
+    colorProfile: ColorProfileOption = ColorProfileOption.STANDARD,
     isMaxMegapixelsEnabled: Boolean,
     isHdrVideoEnabled: Boolean,
     isGridEnabled: Boolean,
@@ -205,9 +210,16 @@ fun CameraPreviewView(
                     val capabilities = CameraVideoManager.detectVideoCapabilities(boundCamera.cameraInfo)
                     onCapabilitiesDetected(capabilities)
                 } else {
-                    // Modo Vídeo: Configura el Recorder con la calidad seleccionada y rango dinámico (SDR u HDR 10-bit HLG)
+                    // Modo Vídeo: Configura el Recorder con la calidad seleccionada y rango dinámico adaptativo
                     val targetDynamicRange = if (isHdrVideoEnabled) {
-                        DynamicRange.HLG_10_BIT
+                        try {
+                            val queried = cameraProvider.availableCameraInfos.find { 
+                                (if (lensFacing == LensFacing.FRONT) it.lensFacing == androidx.camera.core.CameraSelector.LENS_FACING_FRONT else it.lensFacing == androidx.camera.core.CameraSelector.LENS_FACING_BACK)
+                            }?.querySupportedDynamicRanges(setOf(DynamicRange.HLG_10_BIT, DynamicRange.HDR10_10_BIT))
+                            if (!queried.isNullOrEmpty()) queried.first() else DynamicRange.SDR
+                        } catch (_: Exception) {
+                            DynamicRange.SDR
+                        }
                     } else {
                         DynamicRange.SDR
                     }
@@ -227,6 +239,25 @@ fun CameraPreviewView(
                     )
                     cameraInstance = boundCamera
                     onVideoCaptureReady(videoCapture)
+
+                    // Si HDR está activo y no se usa 10-bit en CameraX, activar modo de escena HDR de Camera2
+                    if (isHdrVideoEnabled) {
+                        try {
+                            val c2Control = Camera2CameraControl.from(boundCamera.cameraControl)
+                            val options = CaptureRequestOptions.Builder()
+                                .setCaptureRequestOption(
+                                    CaptureRequest.CONTROL_MODE,
+                                    CameraMetadata.CONTROL_MODE_USE_SCENE_MODE
+                                )
+                                .setCaptureRequestOption(
+                                    CaptureRequest.CONTROL_SCENE_MODE,
+                                    CameraMetadata.CONTROL_SCENE_MODE_HDR
+                                )
+                                .build()
+                            c2Control.setCaptureRequestOptions(options)
+                        } catch (_: Exception) {
+                        }
+                    }
 
                     // Notifica los límites de zoom reales del hardware sin límites artificiales
                     boundCamera.cameraInfo.zoomState.value?.let { state ->
@@ -342,6 +373,11 @@ fun CameraPreviewView(
             modifier = Modifier.fillMaxSize()
         )
 
+        // Capa de previsualización en vivo del perfil de color seleccionado
+        if (colorProfile != ColorProfileOption.STANDARD) {
+            LiveColorProfileOverlay(colorProfile = colorProfile)
+        }
+
         // Máscara de recorte visual para relación de aspecto 1:1 (cuadrado)
         if (aspectRatio == AspectRatioOption.RATIO_1_1) {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -449,5 +485,54 @@ private fun CameraGridOverlay(modifier: Modifier = Modifier) {
         // Líneas horizontales
         drawLine(CameraGridLine, Offset(0f, y1), Offset(width, y1), strokeWidth)
         drawLine(CameraGridLine, Offset(0f, y2), Offset(width, y2), strokeWidth)
+    }
+}
+
+/**
+ * Capa de visualización en tiempo real de los perfiles de color en el visor de la cámara.
+ * Permite al usuario ver en directo los colores vívidos antilavado, alto contraste,
+ * tonos cálidos o blanco y negro artístico antes de capturar la foto.
+ */
+@Composable
+private fun LiveColorProfileOverlay(
+    colorProfile: ColorProfileOption,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier = modifier.fillMaxSize()) {
+        when (colorProfile) {
+            ColorProfileOption.STANDARD -> {}
+            ColorProfileOption.VIVID_ANTI_WASHED -> {
+                // Realce de saturación y contraste visual en vivo
+                drawRect(
+                    color = Color(0xFFFF9800).copy(alpha = 0.08f),
+                    blendMode = androidx.compose.ui.graphics.BlendMode.Overlay
+                )
+                drawRect(
+                    color = Color.Black.copy(alpha = 0.06f),
+                    blendMode = androidx.compose.ui.graphics.BlendMode.Darken
+                )
+            }
+            ColorProfileOption.DEEP_CONTRAST -> {
+                // Contraste profundo con sombras ricas
+                drawRect(
+                    color = Color.Black.copy(alpha = 0.12f),
+                    blendMode = androidx.compose.ui.graphics.BlendMode.Overlay
+                )
+            }
+            ColorProfileOption.WARM_NATURAL -> {
+                // Calidez sutil dorada orgánica
+                drawRect(
+                    color = Color(0xFFFFB300).copy(alpha = 0.10f),
+                    blendMode = androidx.compose.ui.graphics.BlendMode.Color
+                )
+            }
+            ColorProfileOption.MONOCHROME -> {
+                // Blanco y negro nítido en vivo con alta fidelidad
+                drawRect(
+                    color = Color.Black,
+                    blendMode = androidx.compose.ui.graphics.BlendMode.Saturation
+                )
+            }
+        }
     }
 }

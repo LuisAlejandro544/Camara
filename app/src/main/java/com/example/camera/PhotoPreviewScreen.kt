@@ -2,24 +2,39 @@ package com.example.camera
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Camera
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,6 +61,7 @@ import com.example.R
 import com.example.ui.theme.CameraBlack
 import com.example.ui.theme.CameraControlBackground
 import com.example.ui.theme.CameraTextPrimary
+import com.example.ui.theme.CameraYellowAccent
 
 /**
  * Pantalla para visualizar la foto recién capturada a pantalla completa.
@@ -54,12 +70,16 @@ import com.example.ui.theme.CameraTextPrimary
 @Composable
 fun PhotoPreviewScreen(
     photoUri: Uri,
+    isWatermarkEnabled: Boolean = true,
+    onToggleWatermark: () -> Unit = {},
+    onApplyWatermark: (Uri) -> Unit = {},
     onBack: () -> Unit,
     onDeletePhoto: (Uri) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var watermarkAppliedToCurrent by remember { mutableStateOf(false) }
 
     // Estados para zoom y paneo táctil en la visualización
     var scale by remember { mutableFloatStateOf(1f) }
@@ -126,24 +146,127 @@ fun PhotoPreviewScreen(
                 }
 
                 Text(
-                    text = "Foto",
+                    text = "Confirmación de Foto • Apex Camera",
                     color = CameraTextPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(start = 8.dp)
                 )
             }
         }
 
-        // Barra inferior con acciones: Compartir y Eliminar
-        Box(
+        // Panel inferior de confirmación con apartado de Marca de Agua y acciones
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .background(CameraControlBackground)
                 .navigationBarsPadding()
-                .padding(horizontal = 32.dp, vertical = 16.dp)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
+            // APARTADO: Control y Activación de Marca de Agua Apex Camera
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1F1F24)),
+                border = BorderStroke(
+                    1.dp,
+                    if (isWatermarkEnabled) CameraYellowAccent.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.1f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Camera,
+                                contentDescription = null,
+                                tint = CameraYellowAccent,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Marca de agua Apex Camera",
+                                    color = CameraTextPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (isWatermarkEnabled) "Activa: 'SHOT ON APEX CAMERA'" else "Desactivada para nuevas fotos",
+                                    color = if (isWatermarkEnabled) CameraYellowAccent else Color.White.copy(alpha = 0.5f),
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked = isWatermarkEnabled,
+                            onCheckedChange = { onToggleWatermark() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CameraYellowAccent,
+                                checkedTrackColor = CameraYellowAccent.copy(alpha = 0.35f),
+                                uncheckedThumbColor = Color.LightGray,
+                                uncheckedTrackColor = Color.DarkGray
+                            ),
+                            modifier = Modifier.testTag("preview_watermark_switch")
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Distinguir de fotos de la cámara nativa",
+                            color = Color.White.copy(alpha = 0.55f),
+                            fontSize = 11.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        OutlinedButton(
+                            onClick = {
+                                onApplyWatermark(photoUri)
+                                watermarkAppliedToCurrent = true
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = if (watermarkAppliedToCurrent) Color(0xFF81C784) else CameraYellowAccent
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                if (watermarkAppliedToCurrent) Color(0xFF81C784).copy(alpha = 0.5f) else CameraYellowAccent.copy(alpha = 0.6f)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.testTag("apply_watermark_to_photo_button")
+                        ) {
+                            Icon(
+                                imageVector = if (watermarkAppliedToCurrent) Icons.Default.Check else Icons.Default.Camera,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (watermarkAppliedToCurrent) "Estampada" else "Estampar a esta foto",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Acciones: Compartir y Eliminar foto
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
@@ -162,14 +285,14 @@ fun PhotoPreviewScreen(
                         )
                     },
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(48.dp)
                         .testTag("share_photo_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Share,
                         contentDescription = stringResource(R.string.share_photo_desc),
                         tint = CameraTextPrimary,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
 
@@ -177,14 +300,14 @@ fun PhotoPreviewScreen(
                 IconButton(
                     onClick = { showDeleteDialog = true },
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(48.dp)
                         .testTag("delete_photo_button")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = stringResource(R.string.delete_photo_desc),
                         tint = Color(0xFFFF5252),
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
             }

@@ -6,7 +6,14 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.ImageFormat
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.params.StreamConfigurationMap
 import android.net.Uri
@@ -277,17 +284,281 @@ object CameraCaptureManager {
     }
 
     /**
+     * Genera la matriz de color y contraste adecuada según el perfil de color seleccionado.
+     * Diseñada específicamente para eliminar el efecto de fotos lavadas y pasteles.
+     */
+    fun createColorMatrixForProfile(profile: ColorProfileOption): ColorMatrix? {
+        return when (profile) {
+            ColorProfileOption.STANDARD -> null
+            ColorProfileOption.VIVID_ANTI_WASHED -> {
+                // Perfil Vívido Antilavado: Aumenta saturación un 35% y contraste un 15% con negros densos
+                val cm = ColorMatrix()
+                cm.setSaturation(1.35f)
+                val contrast = 1.15f
+                val translate = (-0.5f * contrast + 0.5f) * 255f
+                val contrastMatrix = ColorMatrix(floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                ))
+                cm.postConcat(contrastMatrix)
+                cm
+            }
+            ColorProfileOption.DEEP_CONTRAST -> {
+                // Perfil Alto Contraste: Curva tonal pronunciada con sombras profundas
+                val cm = ColorMatrix()
+                cm.setSaturation(1.15f)
+                val contrast = 1.25f
+                val translate = (-0.5f * contrast + 0.5f) * 255f
+                val contrastMatrix = ColorMatrix(floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                ))
+                cm.postConcat(contrastMatrix)
+                cm
+            }
+            ColorProfileOption.WARM_NATURAL -> {
+                // Perfil Cálido Natural: Tonos orgánicos con ligero realce cálido (+rojo/amarillo)
+                val cm = ColorMatrix()
+                cm.setSaturation(1.10f)
+                val warmMatrix = ColorMatrix(floatArrayOf(
+                    1.08f, 0f, 0f, 0f, 6f,
+                    0f, 1.03f, 0f, 0f, 3f,
+                    0f, 0f, 0.94f, 0f, -5f,
+                    0f, 0f, 0f, 1f, 0f
+                ))
+                cm.postConcat(warmMatrix)
+                cm
+            }
+            ColorProfileOption.MONOCHROME -> {
+                // Perfil Blanco y Negro Artístico con contraste denso
+                val cm = ColorMatrix()
+                cm.setSaturation(0.0f)
+                val contrast = 1.22f
+                val translate = (-0.5f * contrast + 0.5f) * 255f
+                val contrastMatrix = ColorMatrix(floatArrayOf(
+                    contrast, 0f, 0f, 0f, translate,
+                    0f, contrast, 0f, 0f, translate,
+                    0f, 0f, contrast, 0f, translate,
+                    0f, 0f, 0f, 1f, 0f
+                ))
+                cm.postConcat(contrastMatrix)
+                cm
+            }
+        }
+    }
+
+    /**
+     * Aplica la matriz de calibración de color y contraste sobre un [Bitmap].
+     */
+    fun applyColorProfile(source: Bitmap, profile: ColorProfileOption): Bitmap {
+        val matrix = createColorMatrixForProfile(profile) ?: return source
+        return try {
+            val result = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(result)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                colorFilter = ColorMatrixColorFilter(matrix)
+            }
+            canvas.drawBitmap(source, 0f, 0f, paint)
+            if (result != source) {
+                source.recycle()
+            }
+            result
+        } catch (e: Exception) {
+            Log.e(TAG, "Error aplicando perfil de color: ${e.message}")
+            source
+        }
+    }
+
+    /**
+     * Aplica de forma inteligente una marca de agua visible, estética y no invasiva de Apex Camera.
+     * Adapta su posición, proporciones y márgenes según la relación de aspecto (16:9, Full, 4:3, 1:1)
+     * y la resolución de la foto para no obstaculizar la composición del usuario.
+     */
+    fun applyWatermark(
+        source: Bitmap,
+        aspectRatio: AspectRatioOption = AspectRatioOption.RATIO_4_3,
+        colorProfile: ColorProfileOption = ColorProfileOption.STANDARD
+    ): Bitmap {
+        return try {
+            val width = source.width
+            val height = source.height
+            val minDim = minOf(width, height)
+            val isLandscape = width > height
+
+            val workingBitmap = if (source.isMutable) {
+                source
+            } else {
+                val copy = source.copy(Bitmap.Config.ARGB_8888, true)
+                source.recycle()
+                copy
+            }
+
+            val canvas = Canvas(workingBitmap)
+
+            // Escala base adaptada a la resolución física de la toma
+            val baseScale = (minDim / 1080f).coerceIn(0.6f, 4.5f)
+
+            val titleText = "SHOT ON APEX CAMERA"
+            val profileTag = if (colorProfile != ColorProfileOption.STANDARD) {
+                colorProfile.label.uppercase()
+            } else {
+                "NATURAL OPTICS"
+            }
+            val subtitleText = "PRO COLOR ENGINE • $profileTag • ${aspectRatio.label}"
+
+            val titleSize = 25f * baseScale
+            val subtitleSize = 12.5f * baseScale
+            val iconRadius = 8f * baseScale
+            val horizontalPadding = 22f * baseScale
+            val verticalPadding = 14f * baseScale
+            val itemSpacing = 8f * baseScale
+
+            val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = titleSize
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+                letterSpacing = 0.08f
+                setShadowLayer(4f * baseScale, 0f, 2f * baseScale, Color.argb(180, 0, 0, 0))
+            }
+
+            val subtitlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(230, 235, 235, 235)
+                textSize = subtitleSize
+                typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+                letterSpacing = 0.05f
+                setShadowLayer(3f * baseScale, 0f, 1.5f * baseScale, Color.argb(160, 0, 0, 0))
+            }
+
+            val accentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.parseColor("#FFD54F") // Tono dorado Apex Camera
+                style = Paint.Style.FILL
+            }
+
+            val titleWidth = titlePaint.measureText(titleText)
+            val subtitleWidth = subtitlePaint.measureText(subtitleText)
+            val contentWidth = maxOf(titleWidth + (iconRadius * 2) + itemSpacing, subtitleWidth)
+            val contentHeight = titleSize + subtitleSize + itemSpacing
+
+            val badgeWidth = contentWidth + (horizontalPadding * 2)
+            val badgeHeight = contentHeight + (verticalPadding * 2)
+
+            // Posicionamiento inteligente según la relación de aspecto:
+            // - En 16:9 y Full: márgenes que respetan curvaturas de pantalla y barras del sistema
+            // - En 1:1: simetría para encuadre cuadrado
+            // - En 4:3: proporción estándar de sensor fotográfico
+            val marginX = when (aspectRatio) {
+                AspectRatioOption.RATIO_1_1 -> minDim * 0.045f
+                AspectRatioOption.RATIO_16_9 -> if (isLandscape) width * 0.04f else minDim * 0.038f
+                AspectRatioOption.FULL -> if (isLandscape) width * 0.05f else minDim * 0.042f
+                AspectRatioOption.RATIO_4_3 -> minDim * 0.035f
+            }
+
+            val marginY = when (aspectRatio) {
+                AspectRatioOption.RATIO_1_1 -> minDim * 0.045f
+                AspectRatioOption.RATIO_16_9 -> if (isLandscape) minDim * 0.04f else height * 0.048f
+                AspectRatioOption.FULL -> if (isLandscape) minDim * 0.05f else height * 0.058f
+                AspectRatioOption.RATIO_4_3 -> minDim * 0.035f
+            }
+
+            val badgeLeft = marginX
+            val badgeBottom = height - marginY
+            val badgeTop = badgeBottom - badgeHeight
+            val badgeRight = badgeLeft + badgeWidth
+
+            // Cápsula traslúcida protectora para legibilidad en fotos de alto y bajo brillo
+            val backgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(115, 12, 12, 16)
+                style = Paint.Style.FILL
+            }
+
+            val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.argb(65, 255, 213, 79)
+                style = Paint.Style.STROKE
+                strokeWidth = 1.5f * baseScale
+            }
+
+            val cornerRadius = 14f * baseScale
+            val badgeRect = RectF(badgeLeft, badgeTop, badgeRight, badgeBottom)
+            canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, backgroundPaint)
+            canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, borderPaint)
+
+            // Lente / punto identificador de Apex Camera
+            val iconCenterY = badgeTop + verticalPadding + (titleSize * 0.62f)
+            val iconCenterX = badgeLeft + horizontalPadding + iconRadius
+            canvas.drawCircle(iconCenterX, iconCenterY, iconRadius, accentPaint)
+
+            val ringPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.BLACK
+                style = Paint.Style.STROKE
+                strokeWidth = 1.5f * baseScale
+            }
+            canvas.drawCircle(iconCenterX, iconCenterY, iconRadius * 0.5f, ringPaint)
+
+            // Texto "SHOT ON APEX CAMERA"
+            val textStartX = iconCenterX + iconRadius + itemSpacing
+            val titleBaselineY = badgeTop + verticalPadding + titleSize
+            canvas.drawText(titleText, textStartX, titleBaselineY, titlePaint)
+
+            // Subtítulo con perfil de color y aspecto
+            val subtitleBaselineY = titleBaselineY + subtitleSize + itemSpacing
+            canvas.drawText(subtitleText, badgeLeft + horizontalPadding, subtitleBaselineY, subtitlePaint)
+
+            workingBitmap
+        } catch (e: Exception) {
+            Log.e(TAG, "Error al estampar marca de agua: ${e.message}")
+            source
+        }
+    }
+
+    /**
+     * Aplica la marca de agua Apex Camera a una foto ya existente en MediaStore o archivo.
+     */
+    fun applyWatermarkToExistingPhoto(
+        context: Context,
+        photoUri: Uri,
+        aspectRatio: AspectRatioOption = AspectRatioOption.RATIO_4_3,
+        colorProfile: ColorProfileOption = ColorProfileOption.STANDARD
+    ): Boolean {
+        return try {
+            val contentResolver = context.contentResolver
+            val bitmap = contentResolver.openInputStream(photoUri)?.use { stream ->
+                val options = BitmapFactory.Options().apply {
+                    inMutable = true
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                BitmapFactory.decodeStream(stream, null, options)
+            } ?: return false
+
+            val watermarked = applyWatermark(bitmap, aspectRatio, colorProfile)
+            contentResolver.openOutputStream(photoUri, "wt")?.use { out ->
+                watermarked.compress(Bitmap.CompressFormat.JPEG, 96, out)
+            }
+            watermarked.recycle()
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error al estampar marca de agua en foto existente: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * Realiza la toma de una foto utilizando el caso de uso [ImageCapture] configurado.
-     * Si el filtro de belleza está activo o la relación de aspecto requiere recorte central (ej. 1:1 o Full),
-     * procesa el mapa de bits en C++20 / IO coroutines antes de finalizar el archivo.
+     * Aplica recorte de aspecto, perfil de color antilavado, filtro de belleza nativo en C++20
+     * y marca de agua inteligente adaptada al formato si está habilitada.
      *
      * @param context Contexto de la aplicación.
      * @param imageCapture Instancia activa de [ImageCapture] de CameraX.
      * @param flashMode Modo de flash seleccionado por el usuario.
      * @param aspectRatio Relación de aspecto seleccionada (Full, 16:9, 4:3, 1:1).
+     * @param colorProfile Perfil de calibración de color (Vívido Antilavado, Alto Contraste, etc.).
      * @param isBeautyFilterEnabled Indica si se debe aplicar el filtro de belleza en C++20.
      * @param beautyIntensity Intensidad del filtro (0.0f a 1.0f).
      * @param isVulkanBackend Si es true ejecuta el pipeline Vulkan 1.1; de lo contrario OpenGL ES 3.2.
+     * @param isWatermarkEnabled Indica si se estampa la marca de agua 'Apex Camera' adaptada.
      * @param onStart Callback invocado justo al disparar el obturador.
      * @param onSuccess Callback invocado al completar el guardado con éxito.
      * @param onError Callback invocado si ocurre una excepción de captura.
@@ -297,9 +568,11 @@ object CameraCaptureManager {
         imageCapture: ImageCapture?,
         flashMode: FlashMode,
         aspectRatio: AspectRatioOption = AspectRatioOption.RATIO_4_3,
+        colorProfile: ColorProfileOption = ColorProfileOption.STANDARD,
         isBeautyFilterEnabled: Boolean = false,
         beautyIntensity: Float = 0.6f,
         isVulkanBackend: Boolean = false,
+        isWatermarkEnabled: Boolean = false,
         onStart: () -> Unit,
         onSuccess: (savedUri: Uri, path: String) -> Unit,
         onError: (errorMessage: String) -> Unit
@@ -344,8 +617,10 @@ object CameraCaptureManager {
                     if (savedUri != null) {
                         val needsCrop = aspectRatio == AspectRatioOption.RATIO_1_1 || aspectRatio == AspectRatioOption.FULL
                         val needsBeauty = isBeautyFilterEnabled && NativeCameraEngine.isAvailable()
+                        val needsColor = colorProfile != ColorProfileOption.STANDARD
+                        val needsWatermark = isWatermarkEnabled
 
-                        if (needsCrop || needsBeauty) {
+                        if (needsCrop || needsBeauty || needsColor || needsWatermark) {
                             // Procesamiento en segundo plano en Dispatchers.IO para no bloquear el hilo de interfaz
                             val displayMetrics = context.resources.displayMetrics
                             val screenWidth = displayMetrics.widthPixels
@@ -372,12 +647,29 @@ object CameraCaptureManager {
                                             )
                                         }
 
-                                        // 2. Filtro nativo de belleza en C++20 si fue activado
+                                        // 2. Aplicación de perfil de color y contraste (Antilavado / Vívido / Alto Contraste)
+                                        if (needsColor) {
+                                            bitmap = applyColorProfile(
+                                                source = bitmap,
+                                                profile = colorProfile
+                                            )
+                                        }
+
+                                        // 3. Filtro nativo de belleza en C++20 si fue activado
                                         if (needsBeauty) {
                                             NativeCameraEngine.applyBeautyFilter(
                                                 bitmap = bitmap,
                                                 intensity = beautyIntensity,
                                                 isVulkan = isVulkanBackend
+                                            )
+                                        }
+
+                                        // 4. Marca de agua inteligente con nombre y perfil de la app
+                                        if (needsWatermark) {
+                                            bitmap = applyWatermark(
+                                                source = bitmap,
+                                                aspectRatio = aspectRatio,
+                                                colorProfile = colorProfile
                                             )
                                         }
 

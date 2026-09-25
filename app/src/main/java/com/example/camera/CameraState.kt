@@ -85,6 +85,7 @@ enum class ColorProfileOption(
     VIVID_ANTI_WASHED("Vívido Antilavado", "Colores ricos, cielos saturados y negros profundos"),
     DEEP_CONTRAST("Alto Contraste", "Curva S pronunciada con sombras densas"),
     WARM_NATURAL("Cálido Natural", "Tonos cálidos y balance natural orgánico"),
+    MONOCHROME("B&N Artístico", "Blanco y negro con sombras profundas y nitidez"),
     STANDARD("Estándar", "Calibración original del sensor sin modificaciones")
 }
 
@@ -273,5 +274,7 @@ data class CameraUiState(
     val isAspectRatioSelectorOpen: Boolean = false,
     val timerOption: TimerOption = TimerOption.OFF,
     val activeTimerSecondsRemaining: Int? = null,
-    val isTimerSelectorOpen: Boolean = false
+    val isTimerSelectorOpen: Boolean = false,
+    val isFilterSelectorOpen: Boolean = false,
+    val isWatermarkEnabled: Boolean = true
 )

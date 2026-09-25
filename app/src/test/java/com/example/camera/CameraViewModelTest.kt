@@ -25,8 +25,8 @@ class CameraViewModelTest {
     }
 
     @Test
-    fun `toggleHdrVideo no debe activarse si el hardware no soporta HDR`() {
-        // Dado un estado donde el sensor no soporta HDR
+    fun `toggleHdrVideo permite activar el modo HDR adaptativo sin bloqueos`() {
+        // Dado un dispositivo donde CameraX no detecto 10-bit pero el usuario desea HDR adaptativo
         viewModel.setVideoCapabilities(
             VideoCapabilitiesInfo(
                 supportedQualities = listOf(VideoQualityOption.FHD, VideoQualityOption.HD),
@@ -38,14 +38,14 @@ class CameraViewModelTest {
         // Al intentar alternar HDR
         viewModel.toggleHdrVideo()
 
-        // Entonces el estado debe permanecer apagado
-        assertFalse(viewModel.uiState.value.isHdrVideoEnabled)
-        assertFalse(viewModel.uiState.value.isHdrSupported)
+        // El estado debe permitir activar el modo HDR adaptativo
+        assertTrue(viewModel.uiState.value.isHdrVideoEnabled)
+        assertEquals("Vídeo HDR activado (Modo HDR adaptativo)", viewModel.uiState.value.userMessage)
     }
 
     @Test
     fun `toggleHdrVideo debe activarse y desactivarse si el hardware soporta HDR`() {
-        // Dado un sensor de gama alta con soporte de HDR de 10 bits
+        // Dado un sensor de gama alta con soporte de HDR detectado
         viewModel.setVideoCapabilities(
             VideoCapabilitiesInfo(
                 supportedQualities = listOf(VideoQualityOption.UHD, VideoQualityOption.FHD),
@@ -60,7 +60,7 @@ class CameraViewModelTest {
         // Al activarlo
         viewModel.toggleHdrVideo()
         assertTrue(viewModel.uiState.value.isHdrVideoEnabled)
-        assertEquals("Vídeo HDR de 10 bits activado (HLG)", viewModel.uiState.value.userMessage)
+        assertEquals("Vídeo HDR activado (Alto Rango Dinámico • Hardware)", viewModel.uiState.value.userMessage)
 
         // Al desactivarlo
         viewModel.toggleHdrVideo()
@@ -69,30 +69,16 @@ class CameraViewModelTest {
     }
 
     @Test
-    fun `cambiar a un sensor sin soporte HDR debe apagar automaticamente el modo HDR`() {
-        // Primero cámara trasera con soporte HDR y activado
-        viewModel.setVideoCapabilities(
-            VideoCapabilitiesInfo(
-                supportedQualities = listOf(VideoQualityOption.UHD),
-                supportedFps = listOf(30),
-                isHdrSupported = true
-            )
-        )
-        viewModel.toggleHdrVideo()
-        assertTrue(viewModel.uiState.value.isHdrVideoEnabled)
+    fun `toggleFilterSelector abre y cierra el selector y cierra otros paneles`() {
+        viewModel.toggleAspectRatioSelector()
+        assertTrue(viewModel.uiState.value.isAspectRatioSelectorOpen)
 
-        // Cambiamos a cámara frontal que no soporta HDR
-        viewModel.setVideoCapabilities(
-            VideoCapabilitiesInfo(
-                supportedQualities = listOf(VideoQualityOption.FHD),
-                supportedFps = listOf(30),
-                isHdrSupported = false
-            )
-        )
+        viewModel.toggleFilterSelector()
+        assertTrue(viewModel.uiState.value.isFilterSelectorOpen)
+        assertFalse(viewModel.uiState.value.isAspectRatioSelectorOpen)
 
-        // Se apaga de forma segura para evitar fallos de hardware
-        assertFalse(viewModel.uiState.value.isHdrSupported)
-        assertFalse(viewModel.uiState.value.isHdrVideoEnabled)
+        viewModel.closeFilterSelector()
+        assertFalse(viewModel.uiState.value.isFilterSelectorOpen)
     }
 
     @Test
@@ -285,5 +271,25 @@ class CameraViewModelTest {
         assertEquals(CaptureMode.VIDEO, viewModel.uiState.value.captureMode)
         assertFalse(viewModel.uiState.value.isTimerSelectorOpen)
         assertEquals(null, viewModel.uiState.value.activeTimerSecondsRemaining)
+    }
+
+    @Test
+    fun `toggleWatermark y setWatermarkEnabled activan y desactivan la marca de agua de Apex Camera`() {
+        // Inicialmente la marca de agua está activada para certificar fotos de Apex Camera
+        assertTrue(viewModel.uiState.value.isWatermarkEnabled)
+
+        // Alternar para desactivar
+        viewModel.toggleWatermark()
+        assertFalse(viewModel.uiState.value.isWatermarkEnabled)
+        assertEquals("Marca de agua desactivada", viewModel.uiState.value.userMessage)
+
+        // Alternar para reactivar
+        viewModel.toggleWatermark()
+        assertTrue(viewModel.uiState.value.isWatermarkEnabled)
+        assertEquals("Marca de agua 'Apex Camera' activada", viewModel.uiState.value.userMessage)
+
+        // Establecer explícitamente
+        viewModel.setWatermarkEnabled(false)
+        assertFalse(viewModel.uiState.value.isWatermarkEnabled)
     }
 }

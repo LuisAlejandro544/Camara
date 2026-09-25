@@ -137,6 +137,11 @@ class MainActivity : ComponentActivity() {
                         uiState.selectedPhotoForPreview != null -> {
                             PhotoPreviewScreen(
                                 photoUri = uiState.selectedPhotoForPreview!!,
+                                isWatermarkEnabled = uiState.isWatermarkEnabled,
+                                onToggleWatermark = { cameraViewModel.toggleWatermark() },
+                                onApplyWatermark = { uri ->
+                                    cameraViewModel.applyWatermarkToCurrentPhoto(context, uri)
+                                },
                                 onBack = { cameraViewModel.closePhotoPreview() },
                                 onDeletePhoto = { uri ->
                                     cameraViewModel.deletePhoto(context, uri)
@@ -166,7 +171,8 @@ class MainActivity : ComponentActivity() {
                                 onSelectAspectRatio = { ratio -> cameraViewModel.setAspectRatio(ratio) },
                                 onSelectTimer = { timer -> cameraViewModel.setTimerOption(timer) },
                                 onSelectGraphicsBackend = { backend -> cameraViewModel.setSelectedGraphicsBackend(backend) },
-                                onSetBeautyIntensity = { intensity -> cameraViewModel.setBeautyFilterIntensity(intensity) }
+                                onSetBeautyIntensity = { intensity -> cameraViewModel.setBeautyFilterIntensity(intensity) },
+                                onToggleWatermark = { cameraViewModel.toggleWatermark() }
                             )
                         }
 
@@ -246,11 +252,20 @@ class MainActivity : ComponentActivity() {
                                 onToggleTimerSelector = {
                                     cameraViewModel.toggleTimerSelector()
                                 },
+                                onToggleFilterSelector = {
+                                    cameraViewModel.toggleFilterSelector()
+                                },
+                                onSelectColorProfile = { profile ->
+                                    cameraViewModel.setColorProfile(profile)
+                                },
                                 onStartCountdown = { onFinished ->
                                     cameraViewModel.startCountdown(onFinished)
                                 },
                                 onCancelCountdown = {
                                     cameraViewModel.cancelCountdown()
+                                },
+                                onToggleWatermark = {
+                                    cameraViewModel.toggleWatermark()
                                 }
                             )
                         }

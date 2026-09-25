@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Cámara"
+rootProject.name = "Apex Camera"
 
 include(":app")

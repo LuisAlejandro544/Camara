@@ -305,10 +305,10 @@ fun VideoSettingsSheet(
                                         fontWeight = FontWeight.SemiBold
                                     )
                                     Text(
-                                        text = if (uiState.isHdrSupported) {
-                                            if (uiState.isHdrVideoEnabled) stringResource(R.string.video_hdr_desc) else stringResource(R.string.video_sdr_desc)
+                                        text = if (uiState.isHdrVideoEnabled) {
+                                            if (uiState.isHdrSupported) "Alto Rango Dinámico (10-bit HLG / Hardware)" else "Alto Rango Dinámico (Modo HDR Adaptativo)"
                                         } else {
-                                            "No disponible en este sensor"
+                                            stringResource(R.string.video_sdr_desc)
                                         },
                                         color = CameraTextSecondary,
                                         fontSize = 12.sp
@@ -316,42 +316,16 @@ fun VideoSettingsSheet(
                                 }
                             }
 
-                            if (uiState.isHdrSupported) {
-                                Switch(
-                                    checked = uiState.isHdrVideoEnabled,
-                                    onCheckedChange = { onToggleHdr() },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = CameraBlack,
-                                        checkedTrackColor = CameraYellowAccent,
-                                        uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
-                                        uncheckedTrackColor = Color.White.copy(alpha = 0.2f)
-                                    ),
-                                    modifier = Modifier.testTag("hdr_video_toggle_switch")
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color.White.copy(alpha = 0.08f))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        text = "No Soportado",
-                                        color = Color.White.copy(alpha = 0.5f),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
-                        }
-
-                        if (!uiState.isHdrSupported) {
-                            Spacer(modifier = Modifier.height(10.dp))
-                            Text(
-                                text = "El sensor físico o la capa de personalización de $manufacturerName no exponen captura en 10 bits (HLG/HDR10) a través de Camera2. El vídeo se graba en SDR 8-bit estándar.",
-                                color = Color.White.copy(alpha = 0.5f),
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp
+                            Switch(
+                                checked = uiState.isHdrVideoEnabled,
+                                onCheckedChange = { onToggleHdr() },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = CameraBlack,
+                                    checkedTrackColor = CameraYellowAccent,
+                                    uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
+                                    uncheckedTrackColor = Color.White.copy(alpha = 0.2f)
+                                ),
+                                modifier = Modifier.testTag("hdr_video_toggle_switch")
                             )
                         }
                     }

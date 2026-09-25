@@ -69,8 +69,7 @@ class CameraViewModel : ViewModel() {
                 supportedFps = capabilities.supportedFps,
                 selectedFps = validFps,
                 isHdrSupported = capabilities.isHdrSupported,
-                // Si el sensor no soporta HDR, aseguramos que se apague
-                isHdrVideoEnabled = if (capabilities.isHdrSupported) currentState.isHdrVideoEnabled else false
+                isHdrVideoEnabled = currentState.isHdrVideoEnabled
             )
         }
     }
@@ -99,16 +98,19 @@ class CameraViewModel : ViewModel() {
     }
 
     /**
-     * Alterna la grabación de vídeo en Alto Rango Dinámico (HDR de 10 bits).
-     * Solo permite activarse si el hardware del sensor lo soporta.
+     * Alterna la grabación de vídeo en Alto Rango Dinámico (HDR).
+     * Aplica 10-bit HLG/HDR10 o modo de escena HDR por hardware según las capacidades del sensor.
      */
     fun toggleHdrVideo() {
         if (_uiState.value.isRecordingVideo) return
         _uiState.update { currentState ->
-            if (!currentState.isHdrSupported) return@update currentState
             val newHdrState = !currentState.isHdrVideoEnabled
             val message = if (newHdrState) {
-                "Vídeo HDR de 10 bits activado (HLG)"
+                if (currentState.isHdrSupported) {
+                    "Vídeo HDR activado (Alto Rango Dinámico • Hardware)"
+                } else {
+                    "Vídeo HDR activado (Modo HDR adaptativo)"
+                }
             } else {
                 "Vídeo estándar (SDR) activado"
             }
@@ -284,7 +286,11 @@ class CameraViewModel : ViewModel() {
     fun toggleAspectRatioSelector() {
         if (_uiState.value.isRecordingVideo) return
         _uiState.update { currentState ->
-            currentState.copy(isAspectRatioSelectorOpen = !currentState.isAspectRatioSelectorOpen)
+            currentState.copy(
+                isAspectRatioSelectorOpen = !currentState.isAspectRatioSelectorOpen,
+                isTimerSelectorOpen = false,
+                isFilterSelectorOpen = false
+            )
         }
     }
 
@@ -294,6 +300,27 @@ class CameraViewModel : ViewModel() {
      fun closeAspectRatioSelector() {
          _uiState.update { it.copy(isAspectRatioSelectorOpen = false) }
      }
+
+    /**
+     * Abre o cierra la barra selectora de filtros en vivo en la pantalla de la cámara.
+     */
+    fun toggleFilterSelector() {
+        if (_uiState.value.isRecordingVideo) return
+        _uiState.update { currentState ->
+            currentState.copy(
+                isFilterSelectorOpen = !currentState.isFilterSelectorOpen,
+                isAspectRatioSelectorOpen = false,
+                isTimerSelectorOpen = false
+            )
+        }
+    }
+
+    /**
+     * Cierra explícitamente el selector de filtros.
+     */
+    fun closeFilterSelector() {
+        _uiState.update { it.copy(isFilterSelectorOpen = false) }
+    }
 
     /**
      * Establece la opción del temporizador de disparo (OFF, 3s, 5s, 10s).
@@ -346,7 +373,8 @@ class CameraViewModel : ViewModel() {
         _uiState.update { currentState ->
             currentState.copy(
                 isTimerSelectorOpen = !currentState.isTimerSelectorOpen,
-                isAspectRatioSelectorOpen = false // Cerrar el selector de aspecto para evitar sobreposiciones
+                isAspectRatioSelectorOpen = false,
+                isFilterSelectorOpen = false
             )
         }
     }
@@ -696,5 +724,72 @@ class CameraViewModel : ViewModel() {
      */
     fun setBeautyFilterIntensity(intensity: Float) {
         _uiState.update { it.copy(beautyFilterIntensity = intensity.coerceIn(0.0f, 1.0f)) }
+    }
+
+    /**
+     * Alterna la activación de la marca de agua con el nombre de la app (Apex Camera).
+     */
+    fun toggleWatermark() {
+        _uiState.update { current ->
+            val newState = !current.isWatermarkEnabled
+            val msg = if (newState) {
+                "Marca de agua 'Apex Camera' activada"
+            } else {
+                "Marca de agua desactivada"
+            }
+            current.copy(
+                isWatermarkEnabled = newState,
+                userMessage = msg
+            )
+        }
+    }
+
+    /**
+     * Establece explícitamente el estado de la marca de agua.
+     */
+    fun setWatermarkEnabled(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(
+                isWatermarkEnabled = enabled,
+                userMessage = if (enabled) "Marca de agua 'Apex Camera' activada" else "Marca de agua desactivada"
+            )
+        }
+    }
+
+    /**
+     * Estampa la marca de agua en una foto existente desde el panel de confirmación / visualización.
+     */
+    fun applyWatermarkToCurrentPhoto(context: Context, photoUri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val success = CameraCaptureManager.applyWatermarkToExistingPhoto(
+                    context = context,
+                    photoUri = photoUri,
+                    aspectRatio = _uiState.value.aspectRatio,
+                    colorProfile = _uiState.value.colorProfile
+                )
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        _uiState.update { current ->
+                            current.copy(
+                                userMessage = "Marca de agua Apex Camera estampada en la foto"
+                            )
+                        }
+                    } else {
+                        _uiState.update { current ->
+                            current.copy(
+                                userMessage = "No se pudo estampar la marca de agua"
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update { current ->
+                        current.copy(userMessage = "Error al procesar marca de agua: ${e.message}")
+                    }
+                }
+            }
+        }
     }
 }

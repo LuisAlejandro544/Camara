@@ -1,6 +1,6 @@
 {
-  "name": "Cámara",
-  "description": "Aplicación de cámara moderna para tomar fotos con vista previa, controles de captura y galería rápida.",
+  "name": "Apex Camera",
+  "description": "Aplicación de cámara profesional para Android con motor nativo C++20, calibración antilavado y alta fidelidad óptica.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

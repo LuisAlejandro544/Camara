@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Face
@@ -138,8 +139,11 @@ fun CameraScreen(
     onToggleAspectRatioSelector: () -> Unit = {},
     onSetTimerOption: (TimerOption) -> Unit = {},
     onToggleTimerSelector: () -> Unit = {},
+    onToggleFilterSelector: () -> Unit = {},
+    onSelectColorProfile: (ColorProfileOption) -> Unit = {},
     onStartCountdown: ((() -> Unit)) -> Unit = {},
     onCancelCountdown: () -> Unit = {},
+    onToggleWatermark: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -168,6 +172,7 @@ fun CameraScreen(
             captureMode = uiState.captureMode,
             selectedQuality = uiState.selectedVideoQuality,
             aspectRatio = uiState.aspectRatio,
+            colorProfile = uiState.colorProfile,
             isMaxMegapixelsEnabled = uiState.isMaxMegapixelsEnabled,
             isHdrVideoEnabled = uiState.isHdrVideoEnabled,
             isGridEnabled = uiState.isGridEnabled,
@@ -223,7 +228,7 @@ fun CameraScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .statusBarsPadding()
-                    .padding(top = 70.dp)
+                    .padding(top = 92.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -262,7 +267,7 @@ fun CameraScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .statusBarsPadding()
-                    .padding(top = 70.dp)
+                    .padding(top = 92.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -438,20 +443,14 @@ fun CameraScreen(
                         }
 
                         // Botón de acceso directo a HDR para vídeo
-                        val isHdrOn = uiState.isHdrVideoEnabled && uiState.isHdrSupported
+                        val isHdrOn = uiState.isHdrVideoEnabled
                         Surface(
                             color = if (isHdrOn) CameraYellowAccent else Color.Black.copy(alpha = 0.55f),
                             shape = RoundedCornerShape(18.dp),
                             border = BorderStroke(1.dp, if (isHdrOn) CameraYellowAccent else Color.White.copy(alpha = 0.16f)),
                             modifier = Modifier
                                 .clip(RoundedCornerShape(18.dp))
-                                .clickable {
-                                    if (uiState.isHdrSupported) {
-                                        onToggleHdr()
-                                    } else {
-                                        onOpenVideoSettings(true)
-                                    }
-                                }
+                                .clickable { onToggleHdr() }
                                 .testTag("video_hdr_quick_toggle")
                         ) {
                             Row(
@@ -461,13 +460,13 @@ fun CameraScreen(
                                 Icon(
                                     imageVector = Icons.Default.HdrOn,
                                     contentDescription = "HDR Vídeo",
-                                    tint = if (isHdrOn) CameraBlack else if (uiState.isHdrSupported) CameraYellowAccent else Color.White.copy(alpha = 0.4f),
+                                    tint = if (isHdrOn) CameraBlack else CameraYellowAccent,
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(3.dp))
                                 Text(
-                                    text = if (!uiState.isHdrSupported) "HDR N/D" else if (isHdrOn) "HDR" else "SDR",
-                                    color = if (isHdrOn) CameraBlack else if (uiState.isHdrSupported) CameraTextPrimary else Color.White.copy(alpha = 0.4f),
+                                    text = if (isHdrOn) "HDR" else "SDR",
+                                    color = if (isHdrOn) CameraBlack else CameraTextPrimary,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -475,17 +474,18 @@ fun CameraScreen(
                         }
                     }
                 } else {
-                    // Modo Foto: Badge con los megapíxeles reales y botón de Filtro de Belleza (Vulkan/OpenGL)
+                    // Modo Foto: Controles centrales compactos y equilibrados (MP, Filtros en Vivo, Belleza)
                     val maxMp = uiState.photoResolutionInfo.maxMegaPixels
                     val isRestricted = uiState.photoResolutionInfo.isRestrictedByOemOrOs
                     val isHighResOn = uiState.isMaxMegapixelsEnabled
                     val isBeautyOn = uiState.isBeautyFilterEnabled
+                    val isFilterActive = uiState.colorProfile != ColorProfileOption.STANDARD
 
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 1. Selector de Megapíxeles Reales
+                        // 1. Selector de Megapíxeles Reales (Diseño compacto sin palabras desbordantes)
                         Surface(
                             color = if (isHighResOn) CameraYellowAccent else Color.Black.copy(alpha = 0.55f),
                             shape = RoundedCornerShape(18.dp),
@@ -505,9 +505,9 @@ fun CameraScreen(
                                 modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
                             ) {
                                 Text(
-                                    text = if (isHighResOn) "${maxMp}MP" else "${maxMp}MP OFF",
+                                    text = "${maxMp}MP",
                                     color = if (isHighResOn) CameraBlack else CameraTextPrimary,
-                                    fontSize = 11.sp,
+                                    fontSize = 11.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.3.sp
                                 )
@@ -515,15 +515,15 @@ fun CameraScreen(
                                     Spacer(modifier = Modifier.width(3.dp))
                                     Box(
                                         modifier = Modifier
-                                            .size(13.dp)
+                                            .size(12.dp)
                                             .clip(CircleShape)
-                                            .background(if (isHighResOn) CameraBlack.copy(alpha = 0.2f) else CameraYellowAccent.copy(alpha = 0.2f)),
+                                            .background(if (isHighResOn) CameraBlack.copy(alpha = 0.25f) else CameraYellowAccent.copy(alpha = 0.25f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = "i",
                                             color = if (isHighResOn) CameraBlack else CameraYellowAccent,
-                                            fontSize = 9.5.sp,
+                                            fontSize = 9.sp,
                                             fontWeight = FontWeight.ExtraBold
                                         )
                                     }
@@ -531,7 +531,43 @@ fun CameraScreen(
                             }
                         }
 
-                        // 2. Filtro de Belleza (Vulkan 1.1 / OpenGL ES 3.2 en C++20)
+                        // 2. Acceso directo a Filtros de Color en Vivo (Vívido Antilavado, Contraste, Cálido, B&N)
+                        Surface(
+                            color = if (uiState.isFilterSelectorOpen || isFilterActive) CameraYellowAccent else Color.Black.copy(alpha = 0.55f),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.dp, if (uiState.isFilterSelectorOpen || isFilterActive) CameraYellowAccent else Color.White.copy(alpha = 0.16f)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .clickable { onToggleFilterSelector() }
+                                .testTag("filter_selector_toggle_button")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = "Filtros en vivo",
+                                    tint = if (uiState.isFilterSelectorOpen || isFilterActive) CameraBlack else CameraYellowAccent,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = when (uiState.colorProfile) {
+                                        ColorProfileOption.STANDARD -> "Filtro"
+                                        ColorProfileOption.VIVID_ANTI_WASHED -> "Vívido"
+                                        ColorProfileOption.DEEP_CONTRAST -> "Contraste"
+                                        ColorProfileOption.WARM_NATURAL -> "Cálido"
+                                        ColorProfileOption.MONOCHROME -> "B&N"
+                                    },
+                                    color = if (uiState.isFilterSelectorOpen || isFilterActive) CameraBlack else CameraTextPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        // 3. Filtro de Belleza (Vulkan 1.1 / OpenGL ES 3.2 en C++20) compacto
                         Surface(
                             color = if (isBeautyOn) CameraYellowAccent else Color.Black.copy(alpha = 0.55f),
                             shape = RoundedCornerShape(18.dp),
@@ -543,7 +579,7 @@ fun CameraScreen(
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Face,
@@ -551,13 +587,15 @@ fun CameraScreen(
                                     tint = if (isBeautyOn) CameraBlack else CameraYellowAccent,
                                     modifier = Modifier.size(13.dp)
                                 )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text(
-                                    text = if (isBeautyOn) "Belleza" else "Belleza OFF",
-                                    color = if (isBeautyOn) CameraBlack else CameraTextPrimary,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                if (isBeautyOn) {
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "Belleza",
+                                        color = CameraBlack,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
@@ -652,8 +690,8 @@ fun CameraScreen(
             // Barra horizontal desplegable con las 4 opciones de Temporizador: [OFF] [3s] [5s] [10s]
             if (uiState.isTimerSelectorOpen && !uiState.isRecordingVideo) {
                 Surface(
-                    color = Color.Black.copy(alpha = 0.90f),
-                    shape = RoundedCornerShape(24.dp),
+                    color = Color.Black.copy(alpha = 0.92f),
+                    shape = RoundedCornerShape(20.dp),
                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -664,23 +702,26 @@ fun CameraScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TimerOption.entries.forEach { option ->
                             val isSelected = uiState.timerOption == option
                             Surface(
-                                color = if (isSelected) CameraYellowAccent else Color.Transparent,
+                                color = if (isSelected) CameraYellowAccent else Color.Black.copy(alpha = 0.6f),
                                 shape = RoundedCornerShape(16.dp),
-                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
                                 modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp)
                                     .clip(RoundedCornerShape(16.dp))
                                     .clickable { onSetTimerOption(option) }
                                     .testTag("timer_option_${option.label}")
                             ) {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp)
                                 ) {
                                     Text(
                                         text = option.label,
@@ -691,7 +732,8 @@ fun CameraScreen(
                                     Text(
                                         text = option.description,
                                         color = if (isSelected) CameraBlack.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
-                                        fontSize = 9.sp,
+                                        fontSize = 9.5.sp,
+                                        maxLines = 1,
                                         fontWeight = FontWeight.Normal
                                     )
                                 }
@@ -702,10 +744,11 @@ fun CameraScreen(
             }
 
             // Barra horizontal desplegable con las 4 opciones de Aspect Ratio: [Full] [16:9] [4:3] [1:1]
+            // Altura uniforme, simétrica y textos de 1 sola línea para evitar deformidades
             if (uiState.isAspectRatioSelectorOpen && !uiState.isRecordingVideo) {
                 Surface(
-                    color = Color.Black.copy(alpha = 0.90f),
-                    shape = RoundedCornerShape(24.dp),
+                    color = Color.Black.copy(alpha = 0.92f),
+                    shape = RoundedCornerShape(20.dp),
                     border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -716,23 +759,26 @@ fun CameraScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AspectRatioOption.entries.forEach { option ->
                             val isSelected = uiState.aspectRatio == option
                             Surface(
-                                color = if (isSelected) CameraYellowAccent else Color.Transparent,
+                                color = if (isSelected) CameraYellowAccent else Color.Black.copy(alpha = 0.6f),
                                 shape = RoundedCornerShape(16.dp),
-                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
                                 modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp)
                                     .clip(RoundedCornerShape(16.dp))
                                     .clickable { onSelectAspectRatio(option) }
                                     .testTag("aspect_ratio_option_${option.label}")
                             ) {
                                 Column(
                                     horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp)
                                 ) {
                                     Text(
                                         text = option.label,
@@ -741,10 +787,81 @@ fun CameraScreen(
                                         fontWeight = FontWeight.Bold,
                                         letterSpacing = 0.5.sp
                                     )
+                                    val shortDesc = when (option) {
+                                        AspectRatioOption.FULL -> "Pantalla"
+                                        AspectRatioOption.RATIO_16_9 -> "16:9"
+                                        AspectRatioOption.RATIO_4_3 -> "Sensor"
+                                        AspectRatioOption.RATIO_1_1 -> "1:1"
+                                    }
                                     Text(
-                                        text = option.description,
+                                        text = shortDesc,
                                         color = if (isSelected) CameraBlack.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
-                                        fontSize = 9.sp,
+                                        fontSize = 9.5.sp,
+                                        maxLines = 1,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Barra horizontal desplegable con las 5 opciones de Filtros de Color en Vivo:
+            // [Vívido] [Contraste] [Cálido] [B&N] [Estándar]
+            if (uiState.isFilterSelectorOpen && !uiState.isRecordingVideo) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.92f),
+                    shape = RoundedCornerShape(20.dp),
+                    border = BorderStroke(1.dp, CameraYellowAccent.copy(alpha = 0.4f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp)
+                        .testTag("filter_selector_bar")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ColorProfileOption.entries.forEach { option ->
+                            val isSelected = uiState.colorProfile == option
+                            Surface(
+                                color = if (isSelected) CameraYellowAccent else Color.Black.copy(alpha = 0.6f),
+                                shape = RoundedCornerShape(16.dp),
+                                border = if (isSelected) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.3f)),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(52.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { onSelectColorProfile(option) }
+                                    .testTag("filter_option_${option.name}")
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center,
+                                    modifier = Modifier.fillMaxSize().padding(horizontal = 3.dp)
+                                ) {
+                                    val (nameText, descText) = when (option) {
+                                        ColorProfileOption.VIVID_ANTI_WASHED -> "Vívido" to "Antilavado"
+                                        ColorProfileOption.DEEP_CONTRAST -> "Contraste" to "Curva S"
+                                        ColorProfileOption.WARM_NATURAL -> "Cálido" to "Natural"
+                                        ColorProfileOption.MONOCHROME -> "B&N" to "Artístico"
+                                        ColorProfileOption.STANDARD -> "Estándar" to "Sensor"
+                                    }
+                                    Text(
+                                        text = nameText,
+                                        color = if (isSelected) CameraBlack else CameraTextPrimary,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = descText,
+                                        color = if (isSelected) CameraBlack.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.5f),
+                                        fontSize = 8.5.sp,
+                                        maxLines = 1,
                                         fontWeight = FontWeight.Normal
                                     )
                                 }
@@ -936,9 +1053,11 @@ fun CameraScreen(
                                         imageCapture = activeImageCapture,
                                         flashMode = uiState.flashMode,
                                         aspectRatio = uiState.aspectRatio,
+                                        colorProfile = uiState.colorProfile,
                                         isBeautyFilterEnabled = uiState.isBeautyFilterEnabled,
                                         beautyIntensity = uiState.beautyFilterIntensity,
                                         isVulkanBackend = uiState.selectedGraphicsBackend == GraphicsFilterBackend.VULKAN,
+                                        isWatermarkEnabled = uiState.isWatermarkEnabled,
                                         onStart = onCaptureStarted,
                                         onSuccess = onPhotoCaptured,
                                         onError = onCaptureError
