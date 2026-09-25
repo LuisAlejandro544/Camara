@@ -546,9 +546,41 @@ object CameraCaptureManager {
     }
 
     /**
+     * Aplica la mejora de IA local (Zero-DCE Neural Tone Mapping) a una foto ya existente en MediaStore.
+     */
+    fun applyAiEnhancementToExistingPhoto(
+        context: Context,
+        photoUri: Uri
+    ): Boolean {
+        if (!NativeCameraEngine.isAvailable()) return false
+        return try {
+            val contentResolver = context.contentResolver
+            val bitmap = contentResolver.openInputStream(photoUri)?.use { stream ->
+                val options = BitmapFactory.Options().apply {
+                    inMutable = true
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
+                BitmapFactory.decodeStream(stream, null, options)
+            } ?: return false
+
+            val success = NativeCameraEngine.applyAiEnhancement(bitmap, 1.0f)
+            if (success) {
+                contentResolver.openOutputStream(photoUri, "wt")?.use { out ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 96, out)
+                }
+            }
+            bitmap.recycle()
+            success
+        } catch (e: Exception) {
+            Log.e(TAG, "Error aplicando mejora IA a foto existente: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * Realiza la toma de una foto utilizando el caso de uso [ImageCapture] configurado.
-     * Aplica recorte de aspecto, perfil de color antilavado, filtro de belleza nativo en C++20
-     * y marca de agua inteligente adaptada al formato si está habilitada.
+     * Aplica recorte de aspecto, perfil de color antilavado, mejora neuronal con IA local,
+     * filtro de belleza nativo en C++20 y marca de agua inteligente adaptada al formato si está habilitada.
      *
      * @param context Contexto de la aplicación.
      * @param imageCapture Instancia activa de [ImageCapture] de CameraX.
@@ -559,6 +591,7 @@ object CameraCaptureManager {
      * @param beautyIntensity Intensidad del filtro (0.0f a 1.0f).
      * @param isVulkanBackend Si es true ejecuta el pipeline Vulkan 1.1; de lo contrario OpenGL ES 3.2.
      * @param isWatermarkEnabled Indica si se estampa la marca de agua 'Apex Camera' adaptada.
+     * @param isAiModeEnabled Indica si se aplica la mejora inteligente de sombras y curvas con IA local.
      * @param onStart Callback invocado justo al disparar el obturador.
      * @param onSuccess Callback invocado al completar el guardado con éxito.
      * @param onError Callback invocado si ocurre una excepción de captura.
@@ -573,6 +606,7 @@ object CameraCaptureManager {
         beautyIntensity: Float = 0.6f,
         isVulkanBackend: Boolean = false,
         isWatermarkEnabled: Boolean = false,
+        isAiModeEnabled: Boolean = true,
         onStart: () -> Unit,
         onSuccess: (savedUri: Uri, path: String) -> Unit,
         onError: (errorMessage: String) -> Unit
@@ -619,8 +653,9 @@ object CameraCaptureManager {
                         val needsBeauty = isBeautyFilterEnabled && NativeCameraEngine.isAvailable()
                         val needsColor = colorProfile != ColorProfileOption.STANDARD
                         val needsWatermark = isWatermarkEnabled
+                        val needsAi = isAiModeEnabled && NativeCameraEngine.isAvailable()
 
-                        if (needsCrop || needsBeauty || needsColor || needsWatermark) {
+                        if (needsCrop || needsBeauty || needsColor || needsWatermark || needsAi) {
                             // Procesamiento en segundo plano en Dispatchers.IO para no bloquear el hilo de interfaz
                             val displayMetrics = context.resources.displayMetrics
                             val screenWidth = displayMetrics.widthPixels
@@ -655,7 +690,15 @@ object CameraCaptureManager {
                                             )
                                         }
 
-                                        // 3. Filtro nativo de belleza en C++20 si fue activado
+                                        // 3. Mejora Neuronal de Imagen con IA Local en C++20 (Zero-DCE Tone Mapping)
+                                        if (needsAi) {
+                                            NativeCameraEngine.applyAiEnhancement(
+                                                bitmap = bitmap,
+                                                intensity = 1.0f
+                                            )
+                                        }
+
+                                        // 4. Filtro nativo de belleza en C++20 si fue activado
                                         if (needsBeauty) {
                                             NativeCameraEngine.applyBeautyFilter(
                                                 bitmap = bitmap,
@@ -664,7 +707,7 @@ object CameraCaptureManager {
                                             )
                                         }
 
-                                        // 4. Marca de agua inteligente con nombre y perfil de la app
+                                        // 5. Marca de agua inteligente con nombre y perfil de la app
                                         if (needsWatermark) {
                                             bitmap = applyWatermark(
                                                 source = bitmap,

@@ -46,6 +46,11 @@ Construir y mantener una **aplicación de cámara y grabación de vídeo moderna
    - Se detecta dinámicamente si el hardware del procesador/GPU soporta Vulkan 1.1 mediante `PackageManager.FEATURE_VULKAN_HARDWARE_VERSION` (versión >= 0x401000). Si es compatible, se selecciona automáticamente el pipeline de Vulkan 1.1; de lo contrario, se selecciona OpenGL ES 3.2.
    - El usuario puede conmutar manualmente el backend de filtros en la pantalla de Configuración (`SettingsScreen`), validando compatibilidad para evitar fallos.
    - Los filtros fotográficos (como el Filtro de Belleza y Suavizado) se implementan en C++20 (`native-camera-engine.cpp`) con preservación estricta de contraste y niveles de negro (Anti-Lavado) utilizando filtrado bilateral con máscara de piel humana en YCbCr, manteniendo los ojos, cejas, pestañas, labios y contraste de la toma 100% nítidos.
+13. **Modo IA Pro (Zero-DCE Neural Tone Mapping en C++20):**
+   - Motor de inteligencia artificial local por estimación de curvas adaptativas implementado nativamente en C++20 (`native-camera-engine.cpp`) accesible a través de `NativeCameraEngine.applyAiEnhancement`.
+   - Rescata sombras profundas y rango dinámico sin introducir ruido ni elevar el nivel de negro base.
+   - Se integra de forma resiliente tanto en el momento de captura (si `isAiModeEnabled` está activo) como en previsualización de fotos (`PhotoPreviewScreen`) con un botón de mejora directa.
+   - No requiere internet, no realiza llamadas cloud y corre de forma idéntica en arquitecturas de 32 bits (`armeabi-v7a`) y 64 bits (`arm64-v8a`).
 
 ---
 

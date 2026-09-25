@@ -138,9 +138,13 @@ class MainActivity : ComponentActivity() {
                             PhotoPreviewScreen(
                                 photoUri = uiState.selectedPhotoForPreview!!,
                                 isWatermarkEnabled = uiState.isWatermarkEnabled,
+                                isAiModeEnabled = uiState.isAiModeEnabled,
                                 onToggleWatermark = { cameraViewModel.toggleWatermark() },
                                 onApplyWatermark = { uri ->
                                     cameraViewModel.applyWatermarkToCurrentPhoto(context, uri)
+                                },
+                                onApplyAiEnhancement = { uri ->
+                                    cameraViewModel.applyAiEnhancementToCurrentPhoto(context, uri)
                                 },
                                 onBack = { cameraViewModel.closePhotoPreview() },
                                 onDeletePhoto = { uri ->
@@ -172,7 +176,8 @@ class MainActivity : ComponentActivity() {
                                 onSelectTimer = { timer -> cameraViewModel.setTimerOption(timer) },
                                 onSelectGraphicsBackend = { backend -> cameraViewModel.setSelectedGraphicsBackend(backend) },
                                 onSetBeautyIntensity = { intensity -> cameraViewModel.setBeautyFilterIntensity(intensity) },
-                                onToggleWatermark = { cameraViewModel.toggleWatermark() }
+                                onToggleWatermark = { cameraViewModel.toggleWatermark() },
+                                onToggleAiMode = { cameraViewModel.toggleAiMode() }
                             )
                         }
 
@@ -266,6 +271,9 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onToggleWatermark = {
                                     cameraViewModel.toggleWatermark()
+                                },
+                                onToggleAiMode = {
+                                    cameraViewModel.toggleAiMode()
                                 }
                             )
                         }

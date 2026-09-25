@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.GridOn
@@ -77,6 +78,7 @@ fun SettingsScreen(
     onSelectGraphicsBackend: (GraphicsFilterBackend) -> Unit = {},
     onSetBeautyIntensity: (Float) -> Unit = {},
     onToggleWatermark: () -> Unit = {},
+    onToggleAiMode: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -202,6 +204,82 @@ fun SettingsScreen(
                         color = Color.White.copy(alpha = 0.7f),
                         fontSize = 13.sp,
                         lineHeight = 18.sp
+                    )
+                }
+            }
+
+            // TARJETA: Inteligencia Artificial Local (IA Pro) - Zero-DCE Tone Mapping
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(
+                        width = 1.dp,
+                        color = if (uiState.isAiModeEnabled) CameraYellowAccent.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .clip(RoundedCornerShape(16.dp)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(if (uiState.isAiModeEnabled) CameraYellowAccent.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.08f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = if (uiState.isAiModeEnabled) CameraYellowAccent else Color.White.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = "Modo IA Pro (Mejora Inteligente)",
+                                    color = CameraTextPrimary,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (uiState.isAiModeEnabled) "Activo: Zero-DCE Neural Tone Mapping" else "Desactivado (procesado estándar)",
+                                    color = if (uiState.isAiModeEnabled) CameraYellowAccent else Color.White.copy(alpha = 0.5f),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked = uiState.isAiModeEnabled,
+                            onCheckedChange = { onToggleAiMode() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = CameraYellowAccent,
+                                checkedTrackColor = CameraYellowAccent.copy(alpha = 0.35f),
+                                uncheckedThumbColor = Color.LightGray,
+                                uncheckedTrackColor = Color.DarkGray
+                            ),
+                            modifier = Modifier.testTag("settings_ai_mode_switch")
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Analiza el rango dinámico de la foto en milisegundos mediante el motor nativo en C++20. Rescata detalles en sombras oscuras sin ruido y comprime altas luces para cielos definidos.",
+                        color = Color.White.copy(alpha = 0.65f),
+                        fontSize = 12.5.sp,
+                        lineHeight = 17.sp
                     )
                 }
             }

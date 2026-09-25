@@ -292,4 +292,24 @@ class CameraViewModelTest {
         viewModel.setWatermarkEnabled(false)
         assertFalse(viewModel.uiState.value.isWatermarkEnabled)
     }
+
+    @Test
+    fun `toggleAiMode y setAiModeEnabled controlan la activacion del Modo IA Pro`() {
+        // Inicialmente el Modo IA Pro está activado por defecto
+        assertTrue(viewModel.uiState.value.isAiModeEnabled)
+
+        // Alternar para desactivar
+        viewModel.toggleAiMode()
+        assertFalse(viewModel.uiState.value.isAiModeEnabled)
+        assertTrue(viewModel.uiState.value.userMessage?.contains("Modo IA Pro desactivado") == true)
+
+        // Alternar para reactivar
+        viewModel.toggleAiMode()
+        assertTrue(viewModel.uiState.value.isAiModeEnabled)
+        assertTrue(viewModel.uiState.value.userMessage?.contains("Modo IA Pro activado") == true)
+
+        // Establecer explícitamente
+        viewModel.setAiModeEnabled(false)
+        assertFalse(viewModel.uiState.value.isAiModeEnabled)
+    }
 }

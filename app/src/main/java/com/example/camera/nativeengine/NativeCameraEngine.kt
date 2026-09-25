@@ -72,7 +72,29 @@ object NativeCameraEngine {
         }
     }
 
+    /**
+     * Aplica el motor de IA local por estimación de curvas adaptativas (Zero-DCE Neural Tone Mapping)
+     * sobre un [Bitmap]. Rescata sombras profundas, comprime altas luces, mejora el micro-contraste
+     * y enriquece la vitalidad del color protegiendo la tonalidad de la piel humana.
+     *
+     * @param bitmap Imagen a mejorar en formato ARGB_8888.
+     * @param intensity Nivel de intensidad de mejora IA (0.0f a 1.0f, valor por defecto 1.0f).
+     * @return true si se procesó exitosamente en C++20; false en caso contrario.
+     */
+    fun applyAiEnhancement(bitmap: Bitmap, intensity: Float = 1.0f): Boolean {
+        if (!isLoaded) return false
+        return try {
+            applyAiEnhancementNative(bitmap, intensity.coerceIn(0.0f, 1.0f))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error al invocar applyAiEnhancement nativo: ${e.message}")
+            false
+        }
+    }
+
     private external fun getEngineVersion(): String
     private external fun isNativeEngineAvailable(): Boolean
     private external fun applyBeautyFilter(bitmap: Bitmap, intensity: Float, backend: Int): Boolean
+    @kotlin.jvm.JvmStatic
+    @Suppress("FunctionName")
+    private external fun applyAiEnhancementNative(bitmap: Bitmap, intensity: Float): Boolean
 }

@@ -792,4 +792,72 @@ class CameraViewModel : ViewModel() {
             }
         }
     }
+
+    /**
+     * Alterna la activación del Modo IA Pro (Mejora Neuronal Inteligente de Fotos).
+     * Al activarse, aplica la estimación adaptativa de curvas Zero-DCE en C++20
+     * para recuperar sombras, evitar quemar luces y potenciar micro-contraste.
+     */
+    fun toggleAiMode() {
+        if (_uiState.value.isRecordingVideo) return
+        _uiState.update { current ->
+            val newState = !current.isAiModeEnabled
+            val msg = if (newState) {
+                "Modo IA Pro activado (Mejora inteligente de sombras y rango dinámico)"
+            } else {
+                "Modo IA Pro desactivado (Procesado estándar)"
+            }
+            current.copy(
+                isAiModeEnabled = newState,
+                userMessage = msg
+            )
+        }
+    }
+
+    /**
+     * Establece explícitamente el estado del Modo IA Pro.
+     */
+    fun setAiModeEnabled(enabled: Boolean) {
+        _uiState.update { current ->
+            current.copy(
+                isAiModeEnabled = enabled,
+                userMessage = if (enabled) "Modo IA Pro activado" else "Modo IA Pro desactivado"
+            )
+        }
+    }
+
+    /**
+     * Aplica la mejora de IA local (Zero-DCE Tone Mapping en C++20) a una foto ya existente desde la vista previa.
+     */
+    fun applyAiEnhancementToCurrentPhoto(context: Context, photoUri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val success = CameraCaptureManager.applyAiEnhancementToExistingPhoto(
+                    context = context,
+                    photoUri = photoUri
+                )
+                withContext(Dispatchers.Main) {
+                    if (success) {
+                        _uiState.update { current ->
+                            current.copy(
+                                userMessage = "Foto optimizada con IA Pro con éxito (Sombras y rango dinámico restaurados)"
+                            )
+                        }
+                    } else {
+                        _uiState.update { current ->
+                            current.copy(
+                                userMessage = "No se pudo optimizar la foto con IA local"
+                            )
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    _uiState.update { current ->
+                        current.copy(userMessage = "Error al procesar foto con IA: ${e.message}")
+                    }
+                }
+            }
+        }
+    }
 }

@@ -276,5 +276,6 @@ data class CameraUiState(
     val activeTimerSecondsRemaining: Int? = null,
     val isTimerSelectorOpen: Boolean = false,
     val isFilterSelectorOpen: Boolean = false,
-    val isWatermarkEnabled: Boolean = true
+    val isWatermarkEnabled: Boolean = true,
+    val isAiModeEnabled: Boolean = true
 )

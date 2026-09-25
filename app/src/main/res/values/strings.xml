@@ -80,6 +80,11 @@
     <string name="timer_cancel">Cancelar temporizador</string>
     <string name="timer_countdown_label">Disparando en</string>
     <string name="settings_watermark_title">Marca de agua Apex Camera</string>
-    <string name="settings_watermark_desc">Estampa sutilmente 'SHOT ON APEX CAMERA' con perfil de color en las fotos</string>
+    <string name="settings_watermark_desc">Estampa sutilmente \'SHOT ON APEX CAMERA\' con perfil de color en las fotos</string>
     <string name="watermark_shot_on">SHOT ON APEX CAMERA</string>
+    <string name="ai_mode_title">Modo IA Pro</string>
+    <string name="ai_mode_desc">Mejora inteligente neuronal: recupera sombras, amplía rango dinámico y optimiza nitidez</string>
+    <string name="ai_enhanced_badge">Mejorada con IA</string>
+    <string name="ai_enhance_button">Mejora IA Pro</string>
+    <string name="ai_processing">Procesando con IA local…</string>
 </resources>

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -71,8 +72,10 @@ import com.example.ui.theme.CameraYellowAccent
 fun PhotoPreviewScreen(
     photoUri: Uri,
     isWatermarkEnabled: Boolean = true,
+    isAiModeEnabled: Boolean = true,
     onToggleWatermark: () -> Unit = {},
     onApplyWatermark: (Uri) -> Unit = {},
+    onApplyAiEnhancement: (Uri) -> Unit = {},
     onBack: () -> Unit,
     onDeletePhoto: (Uri) -> Unit,
     modifier: Modifier = Modifier
@@ -80,6 +83,7 @@ fun PhotoPreviewScreen(
     val context = LocalContext.current
     var showDeleteDialog by remember { mutableStateOf(false) }
     var watermarkAppliedToCurrent by remember { mutableStateOf(false) }
+    var aiAppliedToCurrent by remember { mutableStateOf(false) }
 
     // Estados para zoom y paneo táctil en la visualización
     var scale by remember { mutableFloatStateOf(1f) }
@@ -164,6 +168,81 @@ fun PhotoPreviewScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
+            // APARTADO: Mejora Inteligente con IA Pro (Zero-DCE Tone Mapping en C++20)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B1D22)),
+                border = BorderStroke(
+                    1.dp,
+                    if (aiAppliedToCurrent) Color(0xFF81C784).copy(alpha = 0.6f) else CameraYellowAccent.copy(alpha = 0.45f)
+                )
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = if (aiAppliedToCurrent) Color(0xFF81C784) else CameraYellowAccent,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Mejora Inteligente con IA Pro",
+                                    color = CameraTextPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (aiAppliedToCurrent) "Foto mejorada: sombras y rango dinámico restaurados" else "Zero-DCE: rescata sombras y micro-contraste en C++",
+                                    color = if (aiAppliedToCurrent) Color(0xFF81C784) else CameraYellowAccent.copy(alpha = 0.85f),
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                onApplyAiEnhancement(photoUri)
+                                aiAppliedToCurrent = true
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = if (aiAppliedToCurrent) Color(0xFF81C784) else CameraYellowAccent
+                            ),
+                            border = BorderStroke(
+                                1.dp,
+                                if (aiAppliedToCurrent) Color(0xFF81C784).copy(alpha = 0.6f) else CameraYellowAccent.copy(alpha = 0.7f)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.testTag("preview_ai_enhance_button")
+                        ) {
+                            Icon(
+                                imageVector = if (aiAppliedToCurrent) Icons.Default.Check else Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = if (aiAppliedToCurrent) "Mejorada" else "Mejora IA",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
             // APARTADO: Control y Activación de Marca de Agua Apex Camera
             Card(
                 modifier = Modifier

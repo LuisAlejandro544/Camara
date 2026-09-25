@@ -7,7 +7,7 @@ Este documento establece el plan de evolución técnico y funcional para convert
 ## 🗺️ Fases de Desarrollo
 
 ```
-Fase 1 (MVP Estable) ──> Fase 2 (Motor C++ Integrado) ──> Fase 3 (Grabación de Vídeo & HW) ──> Fase 4 (Controles Pro) ──> Fase 5 (Fotografía C++) ──> Fase 6 (Distribución)
+Fase 1 (MVP Estable) ──> Fase 2 (Motor C++ Integrado) ──> Fase 3 (Grabación de Vídeo & HW) ──> Fase 4 (Controles Pro) ──> Fase 5 (Fotografía C++) ──> Fase 5.5 (IA Local Pro) ──> Fase 6 (Distribución)
 ```
 
 ---
@@ -137,6 +137,27 @@ Fase 1 (MVP Estable) ──> Fase 2 (Motor C++ Integrado) ──> Fase 3 (Grabac
   - Transformación YUV420 a RGB en milisegundos con Zero-Copy mediante `AHardwareBuffer`.
 - [ ] **Filtros Analógicos No Destructivos:**
   - Curvas de tonos y simulación de película fotográfica clásica aplicadas en el espacio de color nativo.
+
+---
+
+### 🧠 Fase 5.5: Inteligencia Artificial Local (IA Pro) & Neural Tone Mapping *(Activa y en Expansión)*
+- [x] **Motor de IA Local por Estimación Adaptativa de Curvas (Zero-DCE Tone Mapping en C++20):**
+  - Implementación nativa en C++20 que analiza dinámicamente el histograma y la iluminación de la escena.
+  - Rescate inteligente de sombras profundas sin elevar el suelo de negro ni generar grano/ruido digital (100% anti-lavado).
+  - Compresión y protección de altas luces (evita que el cielo o focos de luz salgan quemados).
+  - Micro-contraste y acentuación de texturas de alta frecuencia (cabello, follaje, arquitectura) protegiendo el tono natural de la piel humana mediante espacio YCbCr.
+- [x] **Interruptor "IA Pro" en el Visor:**
+  - Botón táctil directo `[IA Pro] / [IA OFF]` en la barra superior de la cámara en modo foto para activar/desactivar la mejora inteligente al capturar.
+- [x] **Botón "Mejora IA Pro" en Previsualización (`PhotoPreviewScreen`):**
+  - Acceso directo para optimizar cualquier foto ya capturada con 1 solo toque, mostrando confirmación inmediata.
+- [x] **Panel de Configuración IA en `SettingsScreen`:**
+  - Control de activación con descripción técnica detallada del procesado neuronal.
+- [ ] *Próximamente (Expansión IA Local):* **Modo Retrato con Segmentación de Sujeto por IA:**
+  - Separación de personas y fondo en tiempo real con efecto bokeh óptico suave procesado en C++20.
+- [ ] *Próximamente (Expansión IA Local):* **Detección Automática de Escena con IA (AI Scene Detection):**
+  - Identificación inteligente de escenarios (Noche, Contraluz, Texto/Documento, Rostro, Macro) con ajuste automático de curvas.
+- [ ] *Próximamente (Expansión IA Local):* **Reducción de Ruido Neuronal Ultrarrápida (Deep Denoise):**
+  - Supresión inteligente de ruido de sensor optimizada para procesadores de gama media y de entrada.
 
 ---
 

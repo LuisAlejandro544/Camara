@@ -144,6 +144,7 @@ fun CameraScreen(
     onStartCountdown: ((() -> Unit)) -> Unit = {},
     onCancelCountdown: () -> Unit = {},
     onToggleWatermark: () -> Unit = {},
+    onToggleAiMode: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -596,6 +597,37 @@ fun CameraScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
+                            }
+                        }
+
+                        // 4. Modo IA Pro (Estimación de Curvas y Mejora Inteligente en C++20)
+                        val isAiOn = uiState.isAiModeEnabled
+                        Surface(
+                            color = if (isAiOn) CameraYellowAccent else Color.Black.copy(alpha = 0.55f),
+                            shape = RoundedCornerShape(18.dp),
+                            border = BorderStroke(1.dp, if (isAiOn) CameraYellowAccent else Color.White.copy(alpha = 0.16f)),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(18.dp))
+                                .clickable { onToggleAiMode() }
+                                .testTag("ai_mode_toggle_button")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = "Modo IA Pro",
+                                    tint = if (isAiOn) CameraBlack else CameraYellowAccent,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Text(
+                                    text = if (isAiOn) "IA Pro" else "IA OFF",
+                                    color = if (isAiOn) CameraBlack else CameraTextPrimary,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -1058,6 +1090,7 @@ fun CameraScreen(
                                         beautyIntensity = uiState.beautyFilterIntensity,
                                         isVulkanBackend = uiState.selectedGraphicsBackend == GraphicsFilterBackend.VULKAN,
                                         isWatermarkEnabled = uiState.isWatermarkEnabled,
+                                        isAiModeEnabled = uiState.isAiModeEnabled,
                                         onStart = onCaptureStarted,
                                         onSuccess = onPhotoCaptured,
                                         onError = onCaptureError
